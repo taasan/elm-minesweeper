@@ -1,0 +1,14 @@
+ul.NumeralSystemChooser {
+  padding: 0;
+  li {
+    list-style-type: none;
+    margin: 2px 10px;
+    unicode-bidi: bidi-override;
+    display: inline-block;
+  }
+  .NumeralSystemChooser__digit {
+    width: 1.1em;
+    display: inline-block;
+    text-align: center;
+  }
+}

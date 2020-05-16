@@ -1,0 +1,44 @@
+.LevelChooser {
+  background-color: var(--background-color);
+
+  // Layout
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea,
+  form small {
+    display: block;
+    width: 100%;
+  }
+  label,
+  fieldset legend {
+    display: block;
+    margin-bottom: 5px;
+  }
+
+  fieldset {
+    padding: 12px;
+    margin: 1em;
+  }
+
+  label.RadioGroup__Option {
+    display: inline-block;
+  }
+
+  .SvgBoard {
+    border-radius: 50%;
+  }
+
+  input.GridTypeRadio[type='radio'] {
+    visibility: hidden;
+  }
+
+  input.GridTypeRadio[type='radio']:checked + * {
+    background-color: var(--cell-background);
+    box-shadow: 0 0 40px var(--foreground-base3),
+      0 0 20px var(--cell-threats-2-color);
+  }
+
+  input[type='radio'] + * {
+    padding: 5px;
+  }
+}

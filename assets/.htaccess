@@ -1,0 +1,18 @@
+RewriteEngine on
+
+# Browsers will specifically ask for HTML (among other things) on
+# initial page load That is, if the *user* tries to access a
+# *nonexisting* URL, the app is loaded instead but if a webpage
+# attempts to load a missing resource it will return 404.  (You can
+# still go to /myreactapp/favicon.ico, but a missing
+# /myreactapp/favicon.png resource won't return 200)
+
+# if (HTTP_ACCESS.contains('text/html') &&
+# file_not_exists(REQUEST_FILENAME))
+RewriteCond %{HTTP_ACCEPT} text/html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.html [last]
+
+# Any ressources loaded by index.html should behave correctly (i.e:
+# Return 404 if missing)
+RewriteRule ^ - [last]

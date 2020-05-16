@@ -1,0 +1,175 @@
+.SvgMinesweeper__Container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  user-select: none;
+  overflow: auto;
+  text-align: center;
+}
+
+.SvgMinesweeper {
+  .SvgBoard[data-s='PLAYING'] {
+    .SvgMinesweeper__Controls {
+      grid-template-columns: 1fr 2em 1fr 0;
+    }
+  }
+  .SvgMinesweeper__Controls {
+    direction: ltr;
+    cursor: default;
+    min-height: 10px;
+    min-width: 10px;
+    padding: 0px;
+    position: relative;
+    text-align: left;
+    vertical-align: middle;
+    font-size: 20px;
+    font-weight: bold;
+    display: flex;
+    place-content: space-between;
+    padding: 5px 5px 2px 5px;
+    margin: 5px 5px 2px 5px;
+
+    display: grid;
+    grid-auto-flow: column;
+    grid-template: revert;
+    grid-template-columns: 1fr 4em 1fr 1.2em;
+
+    .SvgMinesweeper__Controls__Item {
+      text-align: end;
+    }
+
+    summary.SvgMinesweeper__Controls__Item {
+      list-style: none;
+    }
+
+    ul.Menu__List {
+      position: absolute;
+      right: 0;
+      border-radius: 10px;
+      padding: 15px;
+      background-color: var(--background-base2);
+      box-shadow: 0 0 30px -10px var(--foreground-base3);
+      list-style: none;
+
+      li:hover {
+        color: var(--cell-threats-1-color);
+      }
+      a {
+        color: inherit;
+        text-decoration: inherit;
+      }
+    }
+    /**
+ * Accordion (<details>)
+ * Inspiration: https://codepen.io/koca/pen/RyeLLV
+ */
+
+    details {
+      display: block;
+
+      summary {
+        list-style-type: none;
+        cursor: pointer;
+
+        // Reset marker
+        &::-webkit-details-marker {
+          display: none;
+        }
+        &::marker {
+          display: none;
+        }
+        &::-moz-list-bullet {
+          list-style-type: none;
+        }
+
+        // Marker
+        &::after {
+          display: none;
+        }
+
+        &:focus {
+          outline: none;
+        }
+      }
+    }
+  }
+}
+
+.GameOver {
+  z-index: 3;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  background-color: transparent;
+  align-content: center;
+  opacity: 0.8;
+}
+
+/*
+@supports (width: min(12px, 3px)) {
+  .Minesweeper {
+    --cell-size: min(
+      calc(
+        (100vh - calc((var(--board-padding) + var(--board-border-width)) * 2)) /
+          var(--board-rows)
+      ),
+      calc(
+        (100vw - calc((var(--board-padding) + var(--board-border-width)) * 2)) /
+          var(--board-columns)
+      ),
+      32px
+    ) !important;
+  }
+}
+*/
+/*
+.Minesweeper[data-s='GAME_OVER'] .Board {
+  opacity: 0.5;
+}
+
+/*
+.Cell {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: center;
+  -ms-flex-pack: center;
+  justify-content: center;
+  -webkit-box-align: center;
+  -ms-flex-align: center;
+  align-items: center;
+  background-color: #c0c0c0;
+  list-style: none;
+  font-family: 'VT323';
+  font-size: 1.5em;
+  border: 1px solid #808080;
+}
+*/
+.Minesweeper[data-s='COMPLETE'] {
+  background-color: green !important;
+}
+
+.Minesweeper.overlay {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  width: 100vw;
+  height: 100vh;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  z-index: 2;
+  cursor: pointer;
+}
+
+.Control {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2;
+}

@@ -1,0 +1,8 @@
+// FIXME
+@media screen {
+  @import "light";
+}
+
+@media screen and (prefers-color-scheme: dark) {
+  @import "dark";
+}

@@ -1,0 +1,59 @@
+.SvgBoard {
+  fill: transparent;
+  border: solid var(--cell-background-open);
+  /*
+  box-shadow: 0 0 40px wheat, 0 0 10px purple;
+  padding: 10px;
+  margin: 40px;
+  border-radius: 10px;
+  */
+}
+
+.c[data-s='4'] {
+  animation: move linear 0.3s 1;
+}
+
+@keyframes move {
+  0% {
+    text-shadow: 4px -4px 0 hsla(0, 100%, 50%, 1),
+      3px -3px 0 hsla(0, 100%, 50%, 1), 2px -2px 0 hsla(0, 100%, 50%, 1),
+      1px -1px 0 hsla(0, 100%, 50%, 1), -4px 4px 0 hsla(180, 100%, 50%, 1),
+      -3px 3px 0 hsla(180, 100%, 50%, 1), -2px 2px 0 hsla(180, 100%, 50%, 1),
+      -1px 1px 0 hsla(180, 100%, 50%, 1);
+  }
+  25% {
+    text-shadow: -4px -4px 0 hsla(180, 100%, 50%, 1),
+      -3px -3px 0 hsla(180, 100%, 50%, 1), -2px -2px 0 hsla(180, 100%, 50%, 1),
+      -1px -1px 0 hsla(180, 100%, 50%, 1), 4px 4px 0 hsla(0, 100%, 50%, 1),
+      3px 3px 0 hsla(0, 100%, 50%, 1), 2px 2px 0 hsla(0, 100%, 50%, 1),
+      1px 1px 0 hsla(0, 100%, 50%, 1);
+  }
+  50% {
+    text-shadow: -4px 4px 0 hsla(0, 100%, 50%, 1),
+      -3px 3px 0 hsla(0, 100%, 50%, 1), -2px 2px 0 hsla(0, 100%, 50%, 1),
+      -1px 1px 0 hsla(0, 100%, 50%, 1), 4px -4px 0 hsla(180, 100%, 50%, 1),
+      3px -3px 0 hsla(180, 100%, 50%, 1), 2px -2px 0 hsla(180, 100%, 50%, 1),
+      1px -1px 0 hsla(180, 100%, 50%, 1);
+  }
+  75% {
+    text-shadow: 4px 4px 0 hsla(180, 100%, 50%, 1),
+      3px 3px 0 hsla(180, 100%, 50%, 1), 2px 2px 0 hsla(180, 100%, 50%, 1),
+      1px 1px 0 hsla(180, 100%, 50%, 1), -4px -4px 0 hsla(0, 100%, 50%, 1),
+      -3px -3px 0 hsla(0, 100%, 50%, 1), -2px -2px 0 hsla(0, 100%, 50%, 1),
+      -1px -1px 0 hsla(0, 100%, 50%, 1);
+  }
+  100% {
+    text-shadow: 4px -4px 0 hsla(0, 100%, 50%, 1),
+      3px -3px 0 hsla(0, 100%, 50%, 1), 2px -2px 0 hsla(0, 100%, 50%, 1),
+      1px -1px 0 hsla(0, 100%, 50%, 1), -4px 4px 0 hsla(180, 100%, 50%, 1),
+      -3px 3px 0 hsla(180, 100%, 50%, 1), -2px 2px 0 hsla(180, 100%, 50%, 1),
+      -1px 1px 0 hsla(180, 100%, 50%, 1);
+  }
+}
+
+/*
+.SvgBoard.SvgBoard__rotated {
+  transform: translate(50%, 0) rotate(90deg);
+  transform-origin: top left;
+}
+*/

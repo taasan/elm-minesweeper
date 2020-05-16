@@ -1,0 +1,347 @@
+// Game states
+$GAME_OVER: "GAME_OVER";
+$COMPLETED: "COMPLETED";
+$PAUSED: "PAUSED";
+$INITIALIZED: "INITIALIZED";
+$NOT_INITIALIZED: "NOT_INITIALIZED";
+$PLAYING: "PLAYING";
+$ERROR: "ERROR";
+$DEMO: "DEMO";
+
+$GAME_STATES: $GAME_OVER, $COMPLETED, $PAUSED, $INITIALIZED, $NOT_INITIALIZED,
+  $PLAYING, $ERROR, $DEMO;
+/*
+  NEW,
+  OPEN,
+  FLAGGED,
+  UNCERTAIN,
+  EXPLODED,
+*/
+// Cell states
+$NEW: 0;
+$OPEN: 1;
+$FLAGGED: 2;
+$UNCERTAIN: 3;
+$EXPLODED: 4;
+
+$CELL_STATES: $OPEN, $FLAGGED, $UNCERTAIN, $NEW, $EXPLODED;
+
+$flagTypes: $FLAGGED, $UNCERTAIN;
+
+@function contains($list, $item) {
+  @return index($list, $item);
+}
+
+@function removeCover($gameState, $cellState) {
+  @if (contains(($flagTypes, $EXPLODED), $cellState)) {
+    @return false;
+  }
+  @if ($gameState == $PAUSED) {
+    @return false;
+  }
+  @if (
+    $cellState !=
+      $NEW and
+      ($gameState == $GAME_OVER or $gameState == $COMPLETED)
+  ) {
+    @return true;
+  }
+
+  @return $cellState == $OPEN or $cellState == $EXPLODED;
+}
+
+@function coverVisibility($gameState, $cellState) {
+  @if (removeCover($gameState, $cellState)) {
+    @return hidden;
+  } @else {
+    @return visible;
+  }
+}
+
+@function _rotate($rotated, $deg) {
+  @if (not $rotated) {
+    @return rotate(#{$deg}deg);
+  }
+  @return rotate(#{$deg - 90}deg);
+}
+
+.c .ct {
+  transform-origin: center;
+}
+
+.SvgBoard.SvgBoard__rotated .c .ct {
+  transform: rotate(-90deg);
+}
+
+.c {
+  pointer-events: all;
+  font-family: monospace, "color-emoji";
+  user-select: none;
+  font-weight: bold;
+  /*
+  rotate: 0deg;
+  padding: 3px;
+  margin: 0;
+  border-color: var(--cell-border, black);
+
+  border-width: 2px;
+  border-radius: 5px;
+
+  border-style: outset;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  */
+
+  * {
+    cursor: var(--board-cursor, crosshair);
+  }
+  .ct {
+    font-size: 100%;
+    transform-origin: center;
+  }
+
+  .cb {
+    /*stroke: var(--cell-border, revert);*/
+    stroke-width: 0px;
+    fill: var(--cell-background-open, revert);
+  }
+
+  .cc {
+    /*
+  stroke: var(--cell-border, black);
+  stroke-width: 3px;
+  */
+    fill: var(--cell-background, revert);
+  }
+
+  &[data-s="#{$NEW}"] .cc:hover {
+    fill: var(--mine-detonated-background, revert);
+  }
+
+  &[data-s="#{$EXPLODED}"] .cb {
+    fill: var(--mine-detonated-background, revert);
+  }
+
+  &[data-s="#{$OPEN}"][data-t="0"] {
+    pointer-events: none;
+  }
+
+  @for $i from 1 through 8 {
+    &[data-t="#{$i}"][data-s="#{$OPEN}"] .ct {
+      fill: var(--cell-threats-#{$i}-color);
+      text-shadow: 1px 1px 2px black, 0 0 40px var(--background-base3),
+        0 0 5px var(--cell-threats-#{$i}-color);
+      font-size: 1em;
+    }
+  }
+  /*
+  &[data-s='#{$OPEN}'] *,
+  &:disabled {
+    fill: var(--cell-background-open, revert);
+  }
+*/
+  &:active .cb {
+    fill: var(--cell-pressed-color, revert) !important;
+  }
+}
+
+.SvgBoard[data-s="#{$PAUSED}"] {
+  .cc,
+  .cb {
+    fill: var(--cell-background, revert) !important;
+  }
+
+  .ct {
+    visibility: hidden;
+  }
+}
+
+/*
+
+.c[data-s=#{$FLAGGED}],
+.c[data-s=#{$UNCERTAIN}] {
+  color: var(--cell-flagged-color);
+}
+
+.SvgBoard[data-s=#{$PAUSED}] .c {
+  fill: var(--cell-background) !important;
+  color: transparent !important;
+}
+
+.SvgBoard[data-s=#{$PAUSED}] .c * {
+  visibility: hidden;
+}
+
+.SvgBoard[data-s=#{$GAME_OVER}]
+  .c[data-s=#{$FLAGGED}]:not([data-m]) {
+  fill: var(--cell-background-flagged-wrong);
+  color: var(--cell-color-flagged-wrong, revert);
+}
+
+.c[data-t='0']:not([data-s=#{$FLAGGED}]):not([data-s=#{$UNCERTAIN}])
+  > * {
+  visibility: hidden;
+}
+*/
+.SvgBoard[data-s="#{$PAUSED}"],
+.SvgBoard[data-s="#{$DEMO}"],
+.SvgBoard[data-s="#{$GAME_OVER}"],
+.SvgBoard[data-s="#{$COMPLETED}"] {
+  .c {
+    pointer-events: none;
+  }
+}
+.SvgBoard[data-s="#{$GAME_OVER}"]
+  .c:not([data-s="#{$OPEN}"]):not([data-s="#{$EXPLODED}"])
+  .cb {
+  fill: var(--cell-background-game-over, var(--cell-background, revert));
+}
+
+/*
+.SvgBoard[data-s=#{$PLAYING}] .c[data-s=#{$FLAGGED}] .cc,
+.SvgBoard[data-s=#{$PLAYING}] .c[data-s=#{$FLAGGED}] .cc,
+.SvgBoard[data-s=#{$PLAYING}]
+  .c[data-s=#{$UNCERTAIN}]
+  .cc,
+.SvgBoard[data-s=#{$PLAYING}] .c[data-s=#{$OPEN}] .cc {
+  visibility: hidden;
+}
+
+.SvgBoard[data-s=#{$PAUSED}] .cc {
+  visibility: visible !important;
+}
+*/
+
+.SvgBoard {
+  @each $gameState in $GAME_STATES {
+    @each $cellState in $CELL_STATES {
+      &[data-s="#{$gameState}"] .c[data-s="#{$cellState}"] .cc {
+        visibility: coverVisibility($gameState, $cellState);
+      }
+    }
+  }
+}
+
+.SvgBoard[data-s="#{$GAME_OVER}"]
+  .c[data-s="#{$FLAGGED}"]:not([data-m="t"])
+  .cb {
+  fill: var(--cell-background-flagged-wrong, revert);
+}
+
+.SvgBoard[data-s="#{$DEMO}"] .c[data-s="#{$FLAGGED}"]:not([data-m="t"]) .cb {
+  fill: var(--cell-background-flagged-wrong, revert);
+}
+
+/*
+.SvgBoard[data-s=#{$GAME_OVER}]
+  .c[data-m="t"]:not([data-s=#{$EXPLODED}]),
+.SvgBoard[data-s=#{$COMPLETED}]
+  .c[data-m="t"]:not([data-s=#{$EXPLODED}]) {
+  background-image: var(--mine-disarmed);
+}
+
+.SvgBoard[data-s=#{$GAME_OVER}] .c[data-m="t"],
+.SvgBoard[data-s=#{$COMPLETED}] .c[data-m="t"] {
+  font-size: calc(var(--cell-size) * 0.75);
+}
+*/
+@media (prefers-reduced-motion: no-preference) {
+  @each $rotated in t, f {
+    $name: shake;
+    @if ($rotated == t) {
+      $name: shake_rotated;
+    }
+
+    .SvgBoard[data-r="#{$rotated}"] .c {
+      &[data-s="#{$EXPLODED}"] {
+        use.ct,
+        image.ct,
+        text.ct[role="img"] {
+          //animation: EXPLODED-animation 1 2s cubic-bezier(0.95, 0.05, 0.795, 0.035);
+          // animation: 0.1s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0s 11 alternate
+          //  both running pulse;
+          animation: $name 0.5s;
+        }
+      }
+    }
+  }
+  @each $gameState in $GAME_OVER, $COMPLETED {
+    /*
+    &[data-s='#{$gameState}'] .c > {
+      image.ct,
+      text.ct[role='img'] {
+        transform: rotate(-30deg) scale(1.25);
+        transition: transform 0.3s cubic-bezier(0.785, 0.135, 0.15, 0.86);
+      }
+    }
+    &.SvgBoard__rotated[data-s='#{$gameState}'] .c > {
+      image.ct,
+      text.ct[role='img'] {
+        transform: rotate(-150deg) scale(1.25);
+      }
+    }
+    */
+  }
+
+  @keyframes EXPLODED-animation {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes pulse {
+    0% {
+      transform: scale(1.2);
+    }
+    50% {
+      transform: scale(0.5);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @each $rotated in true, false {
+    $name: shake;
+    @if ($rotated) {
+      $name: shake_rotated;
+    }
+    @keyframes #{$name} {
+      0% {
+        transform: translate(1px, 1px) _rotate($rotated, 0);
+      }
+      10% {
+        transform: translate(-1px, -2px) _rotate($rotated, -1);
+      }
+      20% {
+        transform: translate(-3px, 0px) _rotate($rotated, 1);
+      }
+      30% {
+        transform: translate(3px, 2px) _rotate($rotated, 0);
+      }
+      40% {
+        transform: translate(1px, -1px) _rotate($rotated, 1);
+      }
+      50% {
+        transform: translate(-1px, 2px) _rotate($rotated, -1);
+      }
+      60% {
+        transform: translate(-3px, 1px) _rotate($rotated, 0);
+      }
+      70% {
+        transform: translate(3px, 1px) _rotate($rotated, -1);
+      }
+      80% {
+        transform: translate(-1px, -1px) _rotate($rotated, 1);
+      }
+      90% {
+        transform: translate(1px, 2px) _rotate($rotated, 0);
+      }
+      100% {
+        transform: translate(1px, -2px) _rotate($rotated, -1);
+      }
+    }
+  }
+}

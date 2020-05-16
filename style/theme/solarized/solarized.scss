@@ -1,0 +1,14 @@
+@import "colors";
+
+.Theme__Solarized {
+  --mine-detonated-background: #{$red};
+  --cell-background-flagged-wrong: #{$red};
+  --cell-threats-1-color: #{$blue};
+  --cell-threats-2-color: #{$green};
+  --cell-threats-3-color: #{$red};
+  --cell-threats-4-color: #{$violet};
+  --cell-threats-5-color: #{$magenta};
+  --cell-threats-6-color: #{$cyan};
+  --cell-threats-7-color: #{$yellow};
+  --cell-threats-8-color: #{$orange};
+}

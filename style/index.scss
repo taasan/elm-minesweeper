@@ -1,0 +1,64 @@
+// Components
+@import "FormatNumber";
+@import "LevelChooser";
+@import "NumeralSystemChooser";
+@import "SettingsDialog";
+@import "SvgCell";
+@import "SvgMinesweeper";
+@import "App";
+@import "SvgBoard";
+
+// Theme
+@import "./theme/theme";
+
+// SOlarized theme
+@import "./theme/solarized/solarized";
+@import "./theme/solarized/light";
+@import "./theme/solarized/dark";
+// FIXME @import "./theme/solarized/auto";
+
+@import "normalize";
+
+@font-face {
+  font-family: "color-emoji";
+  src: local("Noto Color Emoji"), local("Apple Color Emoji"),
+    local("Segoe UI Emoji"), local("Segoe UI Symbol"), local("Emoji One"),
+    local("Twemoji"), local("emoji");
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif, "color-emoji";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Center content 
+  display: grid;
+  height: 100vh;
+  margin: 0;
+  place-items: center;
+  */
+  background: var(
+    --background,
+    repeating-radial-gradient(
+      var(--background-base3),
+      var(--background-base2),
+      var(--background-base1)
+    )
+  );
+}
+
+[role="img"] {
+  font-family: "color-emoji";
+}
+
+:root,
+body {
+  height: 100%;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}

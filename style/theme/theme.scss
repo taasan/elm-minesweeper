@@ -1,0 +1,36 @@
+.Theme__Default {
+  --mine-detonated-background: red;
+  --mine-detonated-animation: none;
+
+  --cell-border: var(--cell-background-open);
+  --cell-background: lightSlateGray;
+  --cell-background-open: #eee;
+  --cell-background-flagged-wrong: var(--cell-background);
+  --cell-threats-1-color: DodgerBlue;
+  --cell-threats-2-color: ForestGreen;
+  --cell-threats-3-color: crimson;
+  --cell-threats-4-color: violet;
+  --cell-threats-5-color: magenta;
+  --cell-threats-6-color: DarkTurquoise;
+  --cell-threats-7-color: indigo;
+  --cell-threats-8-color: orange;
+  --cell-pressed-color: var(--cell-background-open);
+
+  --cell-color: #002b36;
+  --cell-mined-color: var(--cell-color);
+  --cell-flagged-color: var(--cell-color);
+
+  --board-border-width: 6px;
+  --board-padding: 3px;
+
+  --background-base3: white;
+  --background-base2: #e0e0e0;
+  --background-base1: #c0c0c0;
+  --background-base0: #a0a0a0;
+  --foreground-base3: black;
+  --foreground-base2: #202020;
+  --foreground-base1: #404040;
+  --foreground-base0: #606060;
+  background-color: var(--background-base3);
+  color: var(--foreground-base3);
+}
