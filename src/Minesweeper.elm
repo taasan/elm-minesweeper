@@ -18,6 +18,7 @@ import Array exposing (Array)
 import Dict
 import Html exposing (Html)
 import Html.Attributes exposing (attribute)
+import Html.Events.Extra.Mouse as Event
 import Lib
     exposing
         ( between
@@ -38,7 +39,6 @@ import Svg
         , use
         )
 import Svg.Attributes as A
-import Svg.Events exposing (onClick)
 import SvgHelper
     exposing
         ( cellSize
@@ -1103,6 +1103,20 @@ viewCell boardState gridType cell =
             , attribute "data-s" <| String.fromInt state
             ]
 
+        attachHandlers =
+            not (completed || gameOver || boardState == Demo || boardState == Paused)
+
+        handleClick e =
+            case e.button of
+                Event.MainButton ->
+                    Cell (GotPoked cell)
+
+                Event.SecondButton ->
+                    Cell (GotFlagged cell)
+
+                _ ->
+                    Relax
+
         optionalAttributes =
             [ if mined && revealed then
                 Just <| attribute "data-m" "t"
@@ -1115,25 +1129,18 @@ viewCell boardState gridType cell =
 
                 _ ->
                     Nothing
+            , if attachHandlers then
+                Just (Event.onDown handleClick)
+
+              else
+                Nothing
             ]
 
         ( completed, gameOver, revealed ) =
             doneState boardState
 
-        attachHandlers =
-            not (completed || gameOver || boardState == Demo || boardState == Paused)
-
-        handlers =
-            if attachHandlers then
-                [ onClick (Cell (GotPoked cell))
-                , Lib.onContextMenu (Cell (GotFlagged cell))
-                ]
-
-            else
-                []
-
         attributes =
-            attributes_ ++ handlers ++ List.filterMap identity optionalAttributes
+            attributes_ ++ List.filterMap identity optionalAttributes
 
         gridType_ =
             "#" ++ gridTypeToString gridType

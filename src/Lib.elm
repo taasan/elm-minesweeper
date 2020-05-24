@@ -3,15 +3,11 @@ module Lib exposing
     , bool2int
     , isEven
     , isOdd
-    , onContextMenu
     , random
     )
 
 import Bitwise exposing (and)
-import Json.Decode as Json
 import Random exposing (Generator)
-import Svg exposing (Attribute)
-import Svg.Events exposing (preventDefaultOn)
 
 
 isEven : Int -> Bool
@@ -22,11 +18,6 @@ isEven n =
 isOdd : Int -> Bool
 isOdd =
     not << isEven
-
-
-onContextMenu : msg -> Attribute msg
-onContextMenu msg =
-    preventDefaultOn "contextmenu" (Json.succeed ( msg, True ))
 
 
 random : Generator Int
