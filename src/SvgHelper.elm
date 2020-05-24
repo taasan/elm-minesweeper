@@ -1,7 +1,20 @@
-module View.Svg exposing (ViewBox, cellSize, defs, hexOffset, href, viewBox)
+module SvgHelper exposing
+    ( ViewBox
+    , cellSize
+    , defs
+    , hexOffset
+    , href
+    , viewBox
+    )
 
 import Html.Attributes
-import Svg exposing (Svg, circle, polygon, svg)
+import Svg
+    exposing
+        ( Svg
+        , circle
+        , polygon
+        , svg
+        )
 import Svg.Attributes as A
 
 
@@ -20,7 +33,7 @@ cellSize =
 
 viewBox : ViewBox -> String
 viewBox { x, y, width, height } =
-    String.join " " <| List.map String.fromFloat [ x, y, width, height ]
+    String.join " " (List.map String.fromFloat [ x, y, width, height ])
 
 
 hexOffset : Float
@@ -29,11 +42,9 @@ hexOffset =
 
 
 hexPoints =
-    String.join " " <|
-        List.map
-            String.fromFloat
-        <|
-            List.concat hexagonPoints
+    List.concat hexagonPoints
+        |> List.map String.fromFloat
+        |> String.join " "
 
 
 
@@ -64,11 +75,9 @@ squarePoints =
             , [ cellSize - gap, gap ]
             ]
     in
-    String.join " " <|
-        List.map
-            String.fromFloat
-        <|
-            List.concat points
+    List.concat points
+        |> List.map String.fromFloat
+        |> String.join " "
 
 
 defs : Svg msg

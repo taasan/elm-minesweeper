@@ -1,21 +1,62 @@
-module Main exposing (main, update, view)
+module Main exposing (main)
 
-import Board exposing (Board, countStates)
+import Array
 import Browser
-import Cell
-import Grid exposing (GridType(..), Topology(..))
-import Html exposing (Html, div, span, text)
+import Html
+    exposing
+        ( Html
+        , div
+        , span
+        , text
+        )
 import Html.Attributes exposing (attribute, class)
 import Html.Events exposing (onClick)
+import Html.Lazy as Html
 import Json.Decode as D
+import Json.Decode.Pipeline as D
 import Json.Encode as E
-import Lib exposing (random)
-import Random exposing (Seed)
+import Lib exposing (bool2int)
+import Minesweeper
+    exposing
+        ( Minesweeper
+        , emptyCellState
+        , getBoardRecord
+        , mapCellState
+        , mkBoard
+        )
+import Random
+import SvgHelper
 import Symbol
-import Task exposing (Task)
+import Task
 import Time exposing (Posix)
-import Types exposing (BoardState(..), CellMsg(..), Msg(..), TimerEvent(..))
-import View.Svg
+import Types
+    exposing
+        ( BoardState(..)
+        , Cell(..)
+        , CellMsg(..)
+        , DoneState(..)
+        , Flag(..)
+        , GridType(..)
+        , Level
+        , Msg(..)
+        , TimerEvent(..)
+        , Topology(..)
+        )
+
+
+
+-- MODEL
+-- MODEL
+
+
+type alias Model =
+    { theme : String
+    , themes : List String
+    , currentTime : Time.Posix
+    , elapsedTime : ( Int, Maybe Time.Posix )
+    , error : Maybe String
+    , board : Minesweeper
+    }
 
 
 
@@ -37,98 +78,62 @@ solarized =
     "Solarized"
 
 
-
--- main =
---     Browser.element
---         { init = init
---         , update = update
---         , view = view
---         , subscriptions = subscriptions
---         }
---   game: {
---    board: GameRecord;
---    nextState: NextStateFunction;
---  };
---  loading: boolean;
---  containerRef: React.RefObject<SVGSVGElement>;
---  maxBoardDimensions: { maxWidth: string; maxHeight: string };
---  modalStack: ModalType[];
---  timingEvents: TimingEvent[];
---  elapsedTime(): number;
---  showMenu: boolean;
---  lives: 0 | 1 | 2;
---  rotated: boolean;
---  boardVersion: number;
+defaultTheme : String
+defaultTheme =
+    "Default"
 
 
-type alias Model =
-    { game : Board
-    , seed : Seed
-    , theme : String
-    , currentTime : Time.Posix
-    , timerEvents : List ( TimerEvent, Time.Posix )
-    , error : Maybe String
-    , debug : Cell.State Int
-    }
-
-
-mkModel : Time.Posix -> Maybe Seed -> Model
-mkModel p x =
-    let
-        board =
-            Board.emptyBoard
-
-        level =
-            Grid.beginner Hex Toroid
-
-        seed =
-            Maybe.withDefault (Random.initialSeed 37) x
-    in
-    { game =
-        Board.mkBoard
-            { board
-                | level = level
-                , seed = seed
-                , useUncertainFlag = True
-            }
-    , seed = Random.initialSeed 37
-    , theme = solarized
-    , currentTime = p
-    , timerEvents = []
+mkModel : Level -> Model
+mkModel level =
+    { theme = solarized
+    , themes = [ solarized, defaultTheme ]
+    , currentTime = Time.millisToPosix 0
+    , elapsedTime = ( 0, Nothing )
     , error = Nothing
-    , debug = Cell.map Lib.bool2int <| Cell.cellState Cell.Void
+    , board =
+        mkBoard
+            { cells = Array.empty
+            , seed = Random.initialSeed 37
+            , state = NotInitialized
+            , lives = 3
+            , useUncertainFlag = True
+            , stats = mapCellState bool2int emptyCellState
+            , level = level
+            }
     }
+
+
+getSeed : Posix -> Msg
+getSeed p =
+    p
+        |> Time.posixToMillis
+        |> Random.initialSeed
+        |> GotSeed
 
 
 init : E.Value -> ( Model, Cmd Msg )
 init flags =
     let
-        posixToMsg : Posix -> Msg
-        posixToMsg p =
-            p
-                |> Time.posixToMillis
-                |> Random.initialSeed
-                |> GotSeed
-
         saved =
             case D.decodeValue decoder flags of
                 Ok m ->
                     m
 
-                Err err ->
-                    { theme = solarized
-                    , themes = [ solarized ]
-                    , currentTime = Time.millisToPosix 0
-                    , error = Just <| D.errorToString err
-                    }
+                Err _ ->
+                    { theme = solarized, themes = [ solarized, defaultTheme ] }
 
         model_ =
-            mkModel saved.currentTime Nothing
+            mkModel <| Minesweeper.beginner Hex Toroid
 
         model =
-            { model_ | theme = saved.theme, error = saved.error }
+            { model_ | theme = saved.theme, themes = saved.themes }
     in
-    ( model, Task.perform posixToMsg Time.now )
+    ( model
+    , Cmd.batch
+        [ Task.perform getSeed Time.now
+        , Task.perform GotCurrentTime Time.now
+        ]
+    )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -140,63 +145,65 @@ update msg model =
         ret newModel =
             ( newModel, Cmd.none )
 
-        ( gameState, board ) =
-            model.game
+        { board } =
+            model
+
+        rec =
+            getBoardRecord board
+
+        { state } =
+            rec
     in
     case msg of
         TogglePause ->
             let
                 ( b, s ) =
-                    Board.togglePause model.game
+                    Minesweeper.togglePause board
             in
             case s of
                 Just event ->
-                    ( { model
-                        | game = b
-                      }
-                    , Task.perform (GotTimerEvent event) Time.now
-                    )
+                    ( { model | board = b }, Task.perform (GotTimerEvent event) Time.now )
 
                 _ ->
                     ret model
 
-        NewGame seed ->
-            if gameState == Paused || gameState == Playing then
+        NewGame ->
+            if state == Paused || state == Playing then
                 ret model
 
             else
-                ret <| mkModel model.currentTime <| Just seed
+                ret <|
+                    { model
+                        | board = mkBoard { rec | state = NotInitialized }
+                        , elapsedTime = ( 0, Nothing )
+                    }
 
         Cell msg_ ->
             let
-                ( game, c ) =
-                    Board.update msg_ model.game
-
-                updatedModel =
-                    { model
-                        | game = game
-                        , debug = Board.countStates <| getBoard game
-                    }
+                ( updatedBoard, event ) =
+                    Minesweeper.update msg_ model.board
 
                 cmd =
-                    case c of
+                    case event of
                         Just x ->
                             Task.perform (GotTimerEvent x) Time.now
 
                         _ ->
                             Cmd.none
             in
-            ( updatedModel, cmd )
+            ( { model | board = updatedBoard }, cmd )
 
         RandomGame ->
-            ( model, Random.generate NewGame Random.independentSeed )
+            let
+                seed =
+                    rec.seed
+                        |> Random.step Random.independentSeed
+                        |> Tuple.first
+            in
+            update NewGame { model | board = mkBoard { rec | seed = seed } }
 
         GotSeed seed ->
-            let
-                ( _, s ) =
-                    Random.step random seed
-            in
-            ( { model | game = ( gameState, { board | seed = s } ) }, Cmd.none )
+            ( { model | board = mkBoard { rec | state = state, seed = seed } }, Cmd.none )
 
         Relax ->
             noop
@@ -205,63 +212,79 @@ update msg model =
             ret { model | theme = theme }
 
         GotTimerEvent event time ->
-            ( { model | timerEvents = ( event, time ) :: model.timerEvents }, Cmd.none )
+            let
+                newTime =
+                    elapsed time model.elapsedTime
+
+                x =
+                    if event == Start then
+                        Just time
+
+                    else
+                        Nothing
+            in
+            ret { model | elapsedTime = ( newTime, x ), currentTime = time }
 
         GotCurrentTime time ->
-            ( { model | currentTime = time }, Cmd.none )
-
-
-getBoard : Board -> Board.BoardRecord
-getBoard b =
-    let
-        ( _, board ) =
-            b
-    in
-    board
+            ret { model | currentTime = time }
 
 
 statusBar : Model -> Html Msg
 statusBar model =
     let
-        ( state, board ) =
-            model.game
+        { board } =
+            model
 
-        { lives } =
-            board.level
+        rec =
+            getBoardRecord board
 
-        stats =
-            countStates board
+        { state, lives } =
+            rec
 
-        ( boardState, renderState ) =
+        stateSymbol _ =
+            Symbol.toString <| Symbol.Board state
+
+        renderState =
             case state of
                 NotInitialized ->
-                    let
-                        s =
-                            NotInitialized
-                    in
-                    ( s, Symbol.toString <| Symbol.Board s )
+                    stateSymbol ()
+
+                Done GameOver _ ->
+                    stateSymbol ()
 
                 _ ->
-                    ( state
-                    , if state == Playing || Types.isDone state then
+                    -- TODO simplify
+                    if state == Playing || Types.isDone state then
                         let
                             f n s =
                                 String.repeat n <| Symbol.toString s
                         in
                         if Types.isWon state || state == Playing then
-                            String.append
-                                (f stats.exploded Symbol.ExplodedMine)
-                                (f (lives - stats.exploded) (Symbol.Disarmed Symbol.Flagged))
+                            let
+                                { stats } =
+                                    rec
+                            in
+                            if lives > 0 then
+                                f stats.exploded Symbol.ExplodedMine
+                                    ++ f (lives - stats.exploded) (Symbol.Disarmed Normal)
+
+                            else
+                                Symbol.toString
+                                    (if state == Playing then
+                                        Symbol.Disarmed Normal
+
+                                     else
+                                        Symbol.ExplodedMine
+                                    )
 
                         else
-                            f lives <| Symbol.Board state
+                            stateSymbol ()
 
-                      else
-                        Symbol.toString <| Symbol.Board state
-                    )
+                    else
+                        stateSymbol ()
     in
     div [ class "SvgMinesweeper__Controls" ]
-        [ span [] [ text "Timer" ]
+        [ span [] [ timer model ]
         , span
             [ onClick TogglePause ]
             [ span
@@ -272,9 +295,9 @@ statusBar model =
             ]
         , span
             [ onClick RandomGame ]
-            [ text (Board.boardState2String boardState) ]
+            [ text (Minesweeper.boardState2String state) ]
         , span
-            [ onClick <| NewGame model.seed ]
+            [ onClick <| NewGame ]
             [ span
                 [ attribute "role" "img"
                 , attribute "aria-label" "menu"
@@ -284,24 +307,37 @@ statusBar model =
         ]
 
 
+timer : Model -> Html msg
+timer model =
+    elapsed model.currentTime model.elapsedTime
+        // 1000
+        |> String.fromInt
+        |> text
+
+
 view : Model -> Html Msg
 view model =
     div [ class "App" ]
         [ div [ class "SvgMinesweeper SvgMinesweeper__Container" ]
             [ statusBar model
-            , Board.view
-                { doPoke = \x -> Cell (GotPoked x)
-                , doFlag = \x -> Cell (GotFlagged x)
-                }
-                model.game
+            , Html.lazy Minesweeper.view model.board
             ]
-        , View.Svg.defs
+        , SvgHelper.defs
         ]
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.none
+subscriptions model =
+    let
+        rec =
+            getBoardRecord model.board
+    in
+    case rec.state of
+        Playing ->
+            Time.every 1000 GotCurrentTime
+
+        _ ->
+            Sub.none
 
 
 
@@ -316,8 +352,6 @@ subscriptions _ =
 type alias SavedModel =
     { themes : List String
     , theme : String
-    , currentTime : Time.Posix
-    , error : Maybe String
     }
 
 
@@ -329,18 +363,18 @@ encode model =
         ]
 
 
-type alias SavedModelL =
-    { theme : String
-    , themes : List String
-    , currentTime : Time.Posix
-    , error : Maybe String
-    }
-
-
-decoder : D.Decoder SavedModelL
+decoder : D.Decoder SavedModel
 decoder =
-    D.map4 SavedModelL
-        (D.field "theme" D.string)
-        (D.field "themes" (D.list D.string))
-        (D.field "currentTime" (D.map Time.millisToPosix D.int))
-        (D.field "error" (D.succeed Nothing))
+    D.succeed SavedModel
+        |> D.optional "themes" (D.list D.string) [ solarized ]
+        |> D.optional "theme" D.string solarized
+
+
+elapsed : Posix -> ( Int, Maybe Time.Posix ) -> Int
+elapsed curr ( acc, e ) =
+    case e of
+        Just time ->
+            acc + (Time.posixToMillis curr - Time.posixToMillis time)
+
+        _ ->
+            acc

@@ -1,25 +1,17 @@
-module Symbol exposing (Flag(..), Mine(..), Symbol(..), randomMine, toString)
+module Symbol exposing
+    ( Symbol(..)
+    , randomMine
+    , toString
+    )
 
 import Random
-import Types exposing (BoardState(..), DoneState(..))
-
-
-type Mine
-    = A
-    | B
-    | C
-    | D
-    | E
-    | F
-    | G
-    | H
-    | I
-    | J
-    | K
-    | L
-    | M
-    | N
-    | O
+import Types
+    exposing
+        ( BoardState(..)
+        , DoneState(..)
+        , Flag(..)
+        , Mine(..)
+        )
 
 
 randomMine : Random.Generator Mine
@@ -40,13 +32,6 @@ randomMine =
         , N
         , O
         ]
-
-
-type Flag
-    = Flagged
-    | Special
-    | Incorrect
-    | Uncertain
 
 
 type Symbol
@@ -127,7 +112,7 @@ toString s =
             "🇳🇴"
 
         -- ☣️
-        Flag Flagged ->
+        Flag Normal ->
             "☣️"
 
         -- ❓
@@ -139,7 +124,7 @@ toString s =
             "💩"
 
         -- 🥰
-        Disarmed Flagged ->
+        Disarmed Normal ->
             "\u{1F970}"
 
         -- 🥺

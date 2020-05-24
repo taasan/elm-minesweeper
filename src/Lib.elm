@@ -1,4 +1,11 @@
-module Lib exposing (between, bool2int, composeMap, isEven, isOdd, onContextMenu, random)
+module Lib exposing
+    ( between
+    , bool2int
+    , isEven
+    , isOdd
+    , onContextMenu
+    , random
+    )
 
 import Bitwise exposing (and)
 import Json.Decode as Json
@@ -46,8 +53,3 @@ bool2int b =
 
     else
         0
-
-
-composeMap : (b -> c) -> (d -> a -> b) -> d -> a -> c
-composeMap g h x y =
-    (g << h x) y

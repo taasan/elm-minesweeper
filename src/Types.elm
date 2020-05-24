@@ -1,13 +1,41 @@
-module Types exposing (BoardState(..), CellMsg(..), DoneState(..), Flag(..), Msg(..), RevealedState(..), TimerEvent(..), isDone, isWon)
+module Types exposing
+    ( Board
+    , BoardState(..)
+    , Cell(..)
+    , CellMsg(..)
+    , CellState
+    , Coordinate
+    , DoneState(..)
+    , Flag(..)
+    , GridType(..)
+    , Level
+    , Mine(..)
+    , Msg(..)
+    , Revealed(..)
+    , RevealedState(..)
+    , Shade(..)
+    , Theme
+    , TimerEvent(..)
+    , Topology(..)
+    , doneState
+    , getIndex
+    , isDone
+    , isWon
+    )
 
+import Array exposing (Array)
 import Random exposing (Seed)
 import Time
+
+
+
+-- MESSAGE
 
 
 type Msg
     = Cell CellMsg
     | TogglePause
-    | NewGame Seed
+    | NewGame
     | SetTheme String
     | RandomGame
     | GotSeed Seed
@@ -17,8 +45,23 @@ type Msg
 
 
 type CellMsg
-    = GotFlagged Int
-    | GotPoked Int
+    = GotFlagged Cell
+    | GotPoked Cell
+
+
+
+-- BOARD
+
+
+type alias Board =
+    { cells : Array Cell
+    , seed : Seed
+    , useUncertainFlag : Bool
+    , state : BoardState
+    , lives : Int
+    , level : Level
+    , stats : CellState Int
+    }
 
 
 type DoneState
@@ -38,6 +81,116 @@ type BoardState
     | Paused
     | Done DoneState RevealedState
     | Demo
+
+
+
+-- LEVEL
+
+
+type GridType
+    = Hex
+    | Square
+
+
+type alias Level =
+    { cols : Int
+    , rows : Int
+    , topology : Topology
+    , type_ : GridType
+    , mines : Int
+    }
+
+
+type Topology
+    = Plane
+    | Toroid
+
+
+type alias Coordinate =
+    { row : Int
+    , col : Int
+    }
+
+
+
+-- CELL
+
+
+type alias CellState a =
+    { flagged : a
+    , flaggedUncertain : a
+    , mined : a
+    , exploded : a
+    , new : a
+    , revealed : a
+    , open : a
+    }
+
+
+type Revealed
+    = Open Int
+    | Exploded
+    | Mined Mine
+
+
+type Flag
+    = Normal
+    | Uncertain
+    | Special
+    | Incorrect
+
+
+type Cell
+    = New Int Bool
+    | Exposed Int Revealed
+    | Flagged Int Flag Bool
+
+
+type Mine
+    = A
+    | B
+    | C
+    | D
+    | E
+    | F
+    | G
+    | H
+    | I
+    | J
+    | K
+    | L
+    | M
+    | N
+    | O
+
+
+getIndex : Cell -> Int
+getIndex cell =
+    case cell of
+        New i _ ->
+            i
+
+        Exposed i _ ->
+            i
+
+        Flagged i _ _ ->
+            i
+
+
+
+-- THEME
+
+
+type Shade
+    = Dark
+    | Light
+
+
+type alias Theme =
+    { name : String
+    , classes : List String
+    , variant : Shade
+    }
 
 
 isDone : BoardState -> Bool
@@ -60,15 +213,16 @@ isWon s =
             False
 
 
-type Flag
-    = Flagged
-    | Special
-    | Incorrect
-    | Uncertain
+doneState : BoardState -> ( Bool, Bool, Bool )
+doneState state =
+    case state of
+        Done s r ->
+            ( s == Completed, s == GameOver, r == Revealed )
+
+        _ ->
+            ( False, False, False )
 
 
 type TimerEvent
-    = Begin
-    | Play
-    | Pause
-    | End
+    = Start
+    | Stop
