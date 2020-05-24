@@ -34,6 +34,7 @@ import Time
 type Msg
     = Cell CellMsg
     | TogglePause
+    | GotBlurred
     | NewGame
     | SetTheme String
     | RandomGame
@@ -41,6 +42,7 @@ type Msg
     | GotCurrentTime Time.Posix
     | GotTimerEvent TimerEvent Time.Posix
     | Relax
+    | Recv String
 
 
 type CellMsg

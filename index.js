@@ -56,14 +56,11 @@ function saveValue(type, key, value) {
 const theme = loadValue("string", "theme") || "Solarized";
 
 const flags = {
-  currentTime: Date.now(),
   theme: theme,
   themes: [theme],
 };
 
-console.log(flags);
-
-Elm.Main.init({
+const app = Elm.Main.init({
   node: document.getElementById("root"),
   flags,
 });
@@ -71,6 +68,9 @@ Elm.Main.init({
 document.documentElement.oncontextmenu = (e) => {
   e.preventDefault();
 };
+window.addEventListener('blur', () => {
+  app.ports.windowBlurred.send("GotBlurred");
+});
 
 // app.ports.saveValue.subscribe(saveValue);
 // app.ports.loadValue.subscribe(loadValue);

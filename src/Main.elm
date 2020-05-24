@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Array
 import Browser
@@ -10,7 +10,7 @@ import Html
         , text
         )
 import Html.Attributes exposing (attribute, class, title)
-import Html.Events exposing (onClick)
+import Html.Events exposing (onBlur, onClick)
 import Html.Lazy as Html
 import Json.Decode as D
 import Json.Decode.Pipeline as D
@@ -71,6 +71,13 @@ main =
         , update = update
         , subscriptions = subscriptions
         }
+
+
+
+-- PORTS
+
+
+port windowBlurred : (String -> msg) -> Sub msg
 
 
 solarized : String
@@ -150,9 +157,8 @@ update msg model =
 
         { state } =
             rec
-    in
-    case msg of
-        TogglePause ->
+
+        doTogglePause _ =
             let
                 ( b, s ) =
                     Minesweeper.togglePause board
@@ -163,6 +169,17 @@ update msg model =
 
                 _ ->
                     ret model
+    in
+    case msg of
+        TogglePause ->
+            doTogglePause ()
+
+        GotBlurred ->
+            if state == Playing then
+                doTogglePause ()
+
+            else
+                ret model
 
         NewGame ->
             if state == Paused || state == Playing then
@@ -224,6 +241,14 @@ update msg model =
 
         GotCurrentTime time ->
             ret { model | currentTime = time }
+
+        Recv s ->
+            case s of
+                "GotBlurred" ->
+                    update GotBlurred model
+
+                _ ->
+                    ret model
 
 
 statusBar : Model -> Html Msg
@@ -317,7 +342,8 @@ statusBar model =
 view : Model -> Html Msg
 view model =
     div [ class "App" ]
-        [ div [ class "SvgMinesweeper SvgMinesweeper__Container" ]
+        [ div
+            [ class "SvgMinesweeper SvgMinesweeper__Container" ]
             [ statusBar model
             , Html.lazy Minesweeper.view model.board
             ]
@@ -330,13 +356,16 @@ subscriptions model =
     let
         rec =
             getBoardRecord model.board
-    in
-    case rec.state of
-        Playing ->
-            Time.every 1000 GotCurrentTime
 
-        _ ->
-            Sub.none
+        timer_ =
+            case rec.state of
+                Playing ->
+                    Time.every 1000 GotCurrentTime
+
+                _ ->
+                    Sub.none
+    in
+    Sub.batch [ timer_, windowBlurred Recv ]
 
 
 
