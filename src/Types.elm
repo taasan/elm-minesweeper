@@ -22,7 +22,6 @@ module Types exposing
     , isWon
     )
 
-import Array exposing (Array)
 import Random exposing (Seed)
 import Time
 

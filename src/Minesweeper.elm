@@ -120,9 +120,6 @@ flag cell (Board board) =
 updateCell : Minesweeper -> Cell -> Minesweeper
 updateCell (Board board) cell =
     let
-        { state } =
-            board
-
         coordinate =
             getIndex cell
 
@@ -161,9 +158,6 @@ revealAll (Board board) =
     case board.state of
         Done status Types.NotRevealed ->
             let
-                { rows, cols } =
-                    board.level
-
                 mapCell cell =
                     case cell of
                         New i True ->
@@ -1009,7 +1003,7 @@ flagCell useUncertain cell =
 viewCell : BoardState -> GridType -> Cell -> Html Msg
 viewCell boardState gridType cell =
     let
-        { mined, open, exploded, flaggedUncertain } =
+        { mined, open, flaggedUncertain } =
             cellState cell
 
         center =

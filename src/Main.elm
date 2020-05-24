@@ -1,6 +1,5 @@
 port module Main exposing (main)
 
-import Array
 import Browser
 import Html
     exposing
@@ -10,18 +9,15 @@ import Html
         , text
         )
 import Html.Attributes exposing (attribute, class, title)
-import Html.Events exposing (onBlur, onClick)
+import Html.Events exposing (onClick)
 import Html.Lazy as Html
 import Json.Decode as D
 import Json.Decode.Pipeline as D
 import Json.Encode as E
-import Lib exposing (bool2int)
 import Minesweeper
     exposing
         ( Minesweeper
-        , emptyCellState
         , getBoardRecord
-        , mapCellState
         , mkBoard
         )
 import Random
