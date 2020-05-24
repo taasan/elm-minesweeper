@@ -5,7 +5,7 @@ module Minesweeper exposing
     , boardState2String
     , emptyCellState
     , expert
-    , getBoardRecord
+    , getState
     , intermediate
     , mapCellState
     , mkBoard
@@ -71,9 +71,19 @@ type Minesweeper
     = Board Board
 
 
-getBoardRecord : Minesweeper -> Board
-getBoardRecord (Board b) =
-    b
+
+-- getBoardRecord : Minesweeper -> PartialBoard {}
+
+
+getState : Minesweeper -> PartialBoard { state : BoardState, stats : CellState Int }
+getState (Board b) =
+    { lives = b.lives
+    , state = b.state
+    , seed = b.seed
+    , stats = b.stats
+    , level = b.level
+    , useUncertainFlag = b.useUncertainFlag
+    }
 
 
 boardState2String : BoardState -> String

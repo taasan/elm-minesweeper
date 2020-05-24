@@ -17,7 +17,7 @@ import Json.Encode as E
 import Minesweeper
     exposing
         ( Minesweeper
-        , getBoardRecord
+        , getState
         , mkBoard
         )
 import Random
@@ -149,7 +149,7 @@ update msg model =
             model
 
         rec =
-            getBoardRecord board
+            getState board
 
         { state } =
             rec
@@ -184,7 +184,7 @@ update msg model =
             else
                 ret <|
                     { model
-                        | board = mkBoard { rec | state = NotInitialized }
+                        | board = mkBoard rec
                         , elapsedTime = ( 0, Nothing )
                     }
 
@@ -217,7 +217,7 @@ update msg model =
                 update NewGame { model | board = mkBoard { rec | seed = seed } }
 
         GotSeed seed ->
-            ( { model | board = mkBoard { rec | state = state, seed = seed } }, Cmd.none )
+            ( { model | board = mkBoard { rec | seed = seed } }, Cmd.none )
 
         Relax ->
             noop
@@ -258,7 +258,7 @@ statusBar model =
             model
 
         rec =
-            getBoardRecord board
+            getState board
 
         { state, lives } =
             rec
@@ -355,7 +355,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     let
         rec =
-            getBoardRecord model.board
+            getState model.board
 
         timer_ =
             case rec.state of
