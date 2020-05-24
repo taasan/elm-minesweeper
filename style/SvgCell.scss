@@ -192,12 +192,13 @@ $flagTypes: $FLAGGED, $UNCERTAIN;
     pointer-events: none;
   }
 }
+/*
 .SvgBoard[data-s="#{$GAME_OVER}"]
   .c:not([data-s="#{$OPEN}"]):not([data-s="#{$EXPLODED}"])
   .cb {
   fill: var(--cell-background-game-over, var(--cell-background, revert));
 }
-
+*/
 /*
 .SvgBoard[data-s=#{$PLAYING}] .c[data-s=#{$FLAGGED}] .cc,
 .SvgBoard[data-s=#{$PLAYING}] .c[data-s=#{$FLAGGED}] .cc,
@@ -223,12 +224,16 @@ $flagTypes: $FLAGGED, $UNCERTAIN;
   }
 }
 
-.SvgBoard[data-s="#{$GAME_OVER}"]
-  .c[data-s="#{$FLAGGED}"]:not([data-m="t"])
-  .cb {
-  fill: var(--cell-background-flagged-wrong, revert);
+.SvgBoard[data-s="#{$GAME_OVER}"] {
+  .c:not([data-m="t"]) {
+    &[data-s="#{$FLAGGED}"],
+    &[data-s="#{$UNCERTAIN}"] {
+      .cb {
+        fill: var(--cell-background-flagged-wrong, revert);
+      }
+    }
+  }
 }
-
 .SvgBoard[data-s="#{$DEMO}"] .c[data-s="#{$FLAGGED}"]:not([data-m="t"]) .cb {
   fill: var(--cell-background-flagged-wrong, revert);
 }

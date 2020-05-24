@@ -973,7 +973,7 @@ flagCell useUncertain cell =
 viewCell : BoardState -> GridType -> Cell -> Html Msg
 viewCell boardState gridType cell =
     let
-        { mined, open, exploded } =
+        { mined, open, exploded, flaggedUncertain } =
             cellState cell
 
         center =
@@ -1023,26 +1023,35 @@ viewCell boardState gridType cell =
                     ( 1, [ background ] )
 
                 Exposed _ (Open n) ->
-                    ( 1, [ background, text__ <| String.fromInt n ] )
+                    ( 1, [ background, symbol <| Count n ] )
 
                 Flagged _ f m ->
-                    case f of
-                        Uncertain ->
-                            ( 3, [ cover, symbol <| Flag Uncertain ] )
+                    let
+                        cssState =
+                            if flaggedUncertain then
+                                3
 
-                        _ ->
-                            let
-                                ( s, el ) =
-                                    if boardState == Done GameOver Revealed && not m then
-                                        ( Symbol.Flag Incorrect, background )
+                            else
+                                2
 
-                                    else if boardState == Done Completed Revealed then
-                                        ( Symbol.Disarmed Normal, background )
+                        slab =
+                            if revealed then
+                                background
 
-                                    else
-                                        ( Symbol.Flag Normal, cover )
-                            in
-                            ( 2, [ el, symbol <| s ] )
+                            else
+                                cover
+
+                        ( s, el ) =
+                            if gameOver && not m then
+                                ( Symbol.Flag Incorrect, slab )
+
+                            else if completed || revealed then
+                                ( Symbol.Disarmed Normal, slab )
+
+                            else
+                                ( Symbol.Flag f, slab )
+                    in
+                    ( cssState, [ el, symbol <| s ] )
 
                 Exposed _ Exploded ->
                     ( 4, [ background, symbol <| ExplodedMine ] )
@@ -1059,7 +1068,7 @@ viewCell boardState gridType cell =
             ]
 
         optionalAttributes =
-            [ if mined && open then
+            [ if mined && revealed then
                 Just <| attribute "data-m" "t"
 
               else
@@ -1072,7 +1081,7 @@ viewCell boardState gridType cell =
                     Nothing
             ]
 
-        ( completed, gameOver, _ ) =
+        ( completed, gameOver, revealed ) =
             doneState boardState
 
         attachHandlers =
