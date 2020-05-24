@@ -214,7 +214,11 @@ update msg model =
                         |> Random.step Random.independentSeed
                         |> Tuple.first
             in
-            update NewGame { model | board = mkBoard { rec | seed = seed } }
+            if state == Paused || state == Playing then
+                ret model
+
+            else
+                update NewGame { model | board = mkBoard { rec | seed = seed } }
 
         GotSeed seed ->
             ( { model | board = mkBoard { rec | state = state, seed = seed } }, Cmd.none )
