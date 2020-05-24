@@ -1,6 +1,5 @@
 module Types exposing
-    ( Board
-    , BoardState(..)
+    ( BoardState(..)
     , Cell(..)
     , CellMsg(..)
     , CellState
@@ -51,17 +50,6 @@ type CellMsg
 
 
 -- BOARD
-
-
-type alias Board =
-    { cells : Array Cell
-    , seed : Seed
-    , useUncertainFlag : Bool
-    , state : BoardState
-    , lives : Int
-    , level : Level
-    , stats : CellState Int
-    }
 
 
 type DoneState

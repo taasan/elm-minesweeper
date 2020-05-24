@@ -92,12 +92,9 @@ mkModel level =
     , error = Nothing
     , board =
         mkBoard
-            { cells = Array.empty
-            , seed = Random.initialSeed 37
-            , state = NotInitialized
+            { seed = Random.initialSeed 37
             , lives = 3
             , useUncertainFlag = True
-            , stats = mapCellState bool2int emptyCellState
             , level = level
             }
     }

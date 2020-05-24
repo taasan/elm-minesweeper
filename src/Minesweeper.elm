@@ -1,5 +1,6 @@
 module Minesweeper exposing
-    ( Minesweeper
+    ( Board
+    , Minesweeper
     , beginner
     , boardState2String
     , emptyCellState
@@ -47,8 +48,7 @@ import SvgHelper
 import Symbol exposing (Symbol(..), randomMine)
 import Types
     exposing
-        ( Board
-        , BoardState(..)
+        ( BoardState(..)
         , Cell(..)
         , CellMsg(..)
         , CellState
@@ -380,9 +380,45 @@ togglePause (Board b) =
             ( Board b, Nothing )
 
 
-mkBoard : Board -> Minesweeper
-mkBoard boardRecord =
-    Board (initialize boardRecord)
+type alias PartialBoard a =
+    { a
+        | seed : Seed
+        , useUncertainFlag : Bool
+        , lives : Int
+        , level : Level
+    }
+
+
+type alias Board =
+    PartialBoard
+        { cells : Array Cell
+        , state : BoardState
+        , stats : CellState Int
+        }
+
+
+emptyBoard =
+    { cells = Array.empty
+    , seed = Random.initialSeed 37
+    , state = NotInitialized
+    , lives = 3
+    , useUncertainFlag = True
+    , stats = mapCellState bool2int emptyCellState
+    , level = beginner Hex Plane
+    }
+
+
+mkBoard : PartialBoard a -> Minesweeper
+mkBoard x =
+    Board
+        (initialize
+            { emptyBoard
+                | level = x.level
+                , lives = x.lives
+                , useUncertainFlag = x.useUncertainFlag
+                , seed = x.seed
+            }
+        )
 
 
 initialize : Board -> Board
