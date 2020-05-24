@@ -9,7 +9,7 @@ import Html
         , span
         , text
         )
-import Html.Attributes exposing (attribute, class)
+import Html.Attributes exposing (attribute, class, title)
 import Html.Events exposing (onClick)
 import Html.Lazy as Html
 import Json.Decode as D
@@ -282,9 +282,19 @@ statusBar model =
 
                     else
                         stateSymbol ()
+
+        elapsedTime =
+            elapsed model.currentTime model.elapsedTime // 1000
+
+        timer : Html msg
+        timer =
+            elapsedTime
+                |> Symbol.Count
+                |> Symbol.toString
+                |> text
     in
     div [ class "SvgMinesweeper__Controls" ]
-        [ span [] [ timer model ]
+        [ span [ title (String.fromInt elapsedTime) ] [ timer ]
         , span
             [ onClick TogglePause ]
             [ span
@@ -305,14 +315,6 @@ statusBar model =
                 [ text <| Symbol.toString Symbol.Hamburger ]
             ]
         ]
-
-
-timer : Model -> Html msg
-timer model =
-    elapsed model.currentTime model.elapsedTime
-        // 1000
-        |> String.fromInt
-        |> text
 
 
 view : Model -> Html Msg

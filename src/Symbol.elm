@@ -135,12 +135,28 @@ toString s =
         ExplodedMine ->
             "💀"
 
-        Count n ->
+        Count num ->
             let
-                c =
-                    String.fromChar <| Char.fromCode <| Char.toCode '０' + n
+                tamil =
+                    3046
+
+                thai =
+                    3664
+
+                map : Int -> Char
+                map n =
+                    Char.fromCode <| thai + n
+
+                --Char.toCode '０' + n
+                digits : List Int
+                digits =
+                    String.fromInt num
+                        |> String.toList
+                        |> List.map (String.toInt << String.fromChar)
+                        |> List.filterMap identity
             in
-            String.fromInt n
+            List.map map digits
+                |> String.fromList
 
         Board boardState ->
             case boardState of
