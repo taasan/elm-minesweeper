@@ -422,27 +422,24 @@ initialize board =
 
         level =
             mkLevel board.level
-
-        ( cells, newSeed ) =
-            createCells ( level, seed )
     in
     { board
         | state = Initialized
         , lives = clamp 1 3 lives
-        , cells = cells
-        , seed = newSeed
+        , cells = createCells level seed
+        , seed = seed
         , level = level
     }
 
 
-createCells : ( Level, Seed ) -> ( Array Cell, Seed )
-createCells ( level, seed ) =
+createCells : Level -> Seed -> Array Cell
+createCells level seed =
     let
         { rows, cols, mines } =
             level
 
-        ( mineSet, newSeed ) =
-            Random.step (Random.set mines (Random.int 0 (rows * cols - 1))) seed
+        mineSet =
+            Tuple.first <| Random.step (Random.set mines (Random.int 0 (rows * cols - 1))) seed
 
         randomMine_ : a -> Int -> ( Int, Types.Mine )
         randomMine_ _ i =
@@ -462,7 +459,7 @@ createCells ( level, seed ) =
             Array.repeat (rows * cols) 0
                 |> Array.indexedMap (\i _ -> New i (Dict.get i mineDict))
     in
-    ( cells, newSeed )
+    cells
 
 
 
