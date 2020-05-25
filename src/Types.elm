@@ -130,9 +130,9 @@ type Flag
 
 
 type Cell
-    = New Int Bool
+    = New Int (Maybe Mine)
     | Exposed Int Revealed
-    | Flagged Int Flag Bool
+    | Flagged Int Flag (Maybe Mine)
 
 
 type Mine

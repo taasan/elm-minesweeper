@@ -3,7 +3,6 @@ module Lib exposing
     , bool2int
     , isEven
     , isOdd
-    , random
     )
 
 import Bitwise exposing (and)
@@ -18,11 +17,6 @@ isEven n =
 isOdd : Int -> Bool
 isOdd =
     not << isEven
-
-
-random : Generator Int
-random =
-    Random.int Random.minInt Random.maxInt
 
 
 between : ( Int, Int ) -> Int -> Bool

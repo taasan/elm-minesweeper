@@ -25,7 +25,6 @@ import Lib
         , bool2int
         , isEven
         , isOdd
-        , random
         )
 import Random exposing (Seed)
 import Random.Set as Random
@@ -170,20 +169,10 @@ revealAll (Board board) =
             let
                 mapCell cell =
                     case cell of
-                        New i True ->
-                            let
-                                ( randomInt, _ ) =
-                                    Random.step random (Random.initialSeed i)
-
-                                ( _, s ) =
-                                    Random.step Random.independentSeed <| Random.initialSeed (randomInt + i)
-
-                                ( mine, _ ) =
-                                    Random.step randomMine s
-                            in
+                        New i (Just mine) ->
                             Exposed i (Mined mine)
 
-                        New i False ->
+                        New i _ ->
                             Exposed i <| Open (countNeighbourStates (Board board) cell).mined
 
                         _ ->
@@ -290,7 +279,7 @@ poke cell board =
                         let
                             newCell =
                                 Exposed i
-                                    (if m then
+                                    (if m /= Nothing then
                                         Exploded
 
                                      else
@@ -300,7 +289,7 @@ poke cell board =
                             updated =
                                 updateCell board newCell
                         in
-                        if mined == 0 && not m then
+                        if mined == 0 && m == Nothing then
                             revealNeighbours cell updated
 
                         else
@@ -455,14 +444,23 @@ createCells ( level, seed ) =
         ( mineSet, newSeed ) =
             Random.step (Random.set mines (Random.int 0 (rows * cols - 1))) seed
 
+        randomMine_ : a -> Int -> ( Int, Types.Mine )
+        randomMine_ _ i =
+            ( i
+            , Random.initialSeed i
+                |> Random.step Random.independentSeed
+                |> (Tuple.first >> Random.step randomMine >> Tuple.first)
+            )
+
+        mineDict : Dict.Dict Int Types.Mine
         mineDict =
-            Dict.fromList <| List.indexedMap (\i c -> ( c, i )) <| Set.toList mineSet
+            Set.toList mineSet
+                |> List.indexedMap randomMine_
+                |> Dict.fromList
 
         cells =
-            Array.indexedMap
-                (\i _ -> New i (Dict.get i mineDict /= Nothing))
-            <|
-                Array.repeat (rows * cols) 0
+            Array.repeat (rows * cols) 0
+                |> Array.indexedMap (\i _ -> New i (Dict.get i mineDict))
     in
     ( cells, newSeed )
 
@@ -528,7 +526,7 @@ view (Board board) =
         cells =
             case state of
                 NotInitialized ->
-                    Array.initialize (rows * cols) (\i -> New i False)
+                    Array.initialize (rows * cols) (\i -> New i Nothing)
 
                 _ ->
                     board.cells
@@ -951,9 +949,9 @@ emptyCellState =
 cellState : Cell -> CellState Bool
 cellState cell =
     case cell of
-        New _ mined ->
+        New _ mine ->
             { emptyCellState
-                | mined = mined
+                | mined = mine /= Nothing
                 , new = True
             }
 
@@ -976,9 +974,9 @@ cellState cell =
                 , revealed = True
             }
 
-        Flagged _ f mined ->
+        Flagged _ f mine ->
             { emptyCellState
-                | mined = mined
+                | mined = mine /= Nothing
                 , flagged = True
                 , flaggedUncertain = f == Uncertain
             }
@@ -1082,7 +1080,7 @@ viewCell boardState gridType cell =
                                 cover
 
                         ( s, el ) =
-                            if gameOver && not m then
+                            if gameOver && m == Nothing then
                                 ( Symbol.Flag Incorrect, slab )
 
                             else if completed || revealed then
