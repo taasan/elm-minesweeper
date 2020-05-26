@@ -110,24 +110,24 @@ boardState2String state =
             "DEMO"
 
 
-flag : Cell -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
-flag cell (Board board) =
+flag : Cell -> Board -> ( Board, Maybe TimerEvent )
+flag cell board =
     let
         { state } =
             board
     in
     ( case state of
         Playing ->
-            updateCell (Board board) <| flagCell board.useUncertainFlag cell
+            updateCell board <| flagCell board.useUncertainFlag cell
 
         _ ->
-            Board board
+            board
     , Nothing
     )
 
 
-updateCell : Minesweeper -> Cell -> Minesweeper
-updateCell (Board board) cell =
+updateCell : Board -> Cell -> Board
+updateCell board cell =
     let
         coordinate =
             getIndex cell
@@ -154,16 +154,15 @@ updateCell (Board board) cell =
                 _ ->
                     Playing
     in
-    Board
-        { board
-            | state = newState
-            , cells = cells
-            , stats = stats
-        }
+    { board
+        | state = newState
+        , cells = cells
+        , stats = stats
+    }
 
 
-revealAll : Minesweeper -> ( Minesweeper, Maybe TimerEvent )
-revealAll (Board board) =
+revealAll : Board -> ( Board, Maybe TimerEvent )
+revealAll board =
     case board.state of
         Done status Types.NotRevealed ->
             let
@@ -173,21 +172,20 @@ revealAll (Board board) =
                             Exposed i (Mined mine)
 
                         New i _ ->
-                            Exposed i <| Open (countNeighbourStates (Board board) cell).mined
+                            Exposed i <| Open (countNeighbourStates board cell).mined
 
                         _ ->
                             cell
             in
-            ( Board
-                { board
-                    | state = Done status Types.Revealed
-                    , cells = Array.map mapCell board.cells
-                }
+            ( { board
+                | state = Done status Types.Revealed
+                , cells = Array.map mapCell board.cells
+              }
             , Just Stop
             )
 
         _ ->
-            ( Board board, Nothing )
+            ( board, Nothing )
 
 
 gameWon : Board -> Bool
@@ -213,10 +211,10 @@ gameWon board =
             False
 
 
-revealNeighbours : Cell -> Minesweeper -> Minesweeper
-revealNeighbours cell (Board board) =
+revealNeighbours : Cell -> Board -> Board
+revealNeighbours cell board =
     if board.state /= Playing then
-        Board board
+        board
 
     else
         let
@@ -232,24 +230,21 @@ revealNeighbours cell (Board board) =
                     _ ->
                         False
 
-            folder : Cell -> Minesweeper -> Minesweeper
+            folder : Cell -> Board -> Board
             folder c b =
                 Tuple.first <| poke c b
         in
-        getNeighbours (Board board) cell
+        getNeighbours board cell
             -- Only poke new cells
             |> List.filter mayPoke
-            |> List.foldl folder (Board board)
+            |> List.foldl folder board
 
 
-poke : Cell -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
+poke : Cell -> Board -> ( Board, Maybe TimerEvent )
 poke cell board =
     let
-        (Board rec) =
-            board
-
-        (Board newBoard) =
-            if rec.state /= Playing then
+        newBoard =
+            if board.state /= Playing then
                 board
 
             else
@@ -296,7 +291,7 @@ poke cell board =
                             updated
 
                     Flagged _ Uncertain _ ->
-                        poke (flagCell rec.useUncertainFlag cell) board
+                        poke (flagCell board.useUncertainFlag cell) board
                             |> Tuple.first
 
                     _ ->
@@ -306,20 +301,20 @@ poke cell board =
             doneState newBoard.state
     in
     if revealed then
-        ( Board newBoard, Nothing )
+        ( newBoard, Nothing )
 
     else if gameOver || completed then
-        revealAll (Board newBoard)
+        revealAll newBoard
 
     else if gameWon newBoard then
-        revealAll <| Board { newBoard | state = Done Completed Types.NotRevealed }
+        revealAll <| { newBoard | state = Done Completed Types.NotRevealed }
 
     else
-        ( Board newBoard, Nothing )
+        ( newBoard, Nothing )
 
 
 update : CellMsg -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
-update msg board =
+update msg (Board board) =
     let
         ( cmd, cell ) =
             case msg of
@@ -328,32 +323,29 @@ update msg board =
 
                 GotFlagged c ->
                     ( flag, c )
-
-        (Board b) =
-            board
     in
-    case b.state of
+    case board.state of
         NotInitialized ->
-            update msg <| mkBoard b
+            update msg <| mkBoard board
 
         Initialized ->
             let
                 ( x, _ ) =
-                    update msg <| Board { b | state = Playing }
+                    update msg <| Board { board | state = Playing }
             in
             ( x, Just Start )
 
         Playing ->
-            cmd cell board
+            Tuple.mapFirst Board <| cmd cell board
 
         Done GameOver _ ->
-            ( board, Just Stop )
+            ( Board board, Just Stop )
 
         Done Completed _ ->
-            ( board, Just Stop )
+            ( Board board, Just Stop )
 
         _ ->
-            ( board, Nothing )
+            ( Board board, Nothing )
 
 
 togglePause : Minesweeper -> ( Minesweeper, Maybe TimerEvent )
@@ -635,8 +627,8 @@ view (Board board) =
 -- Helpers
 
 
-getNeighbours : Minesweeper -> Cell -> List Cell
-getNeighbours (Board x) cell =
+getNeighbours : Board -> Cell -> List Cell
+getNeighbours x cell =
     let
         get_ : Coordinate -> Maybe Cell
         get_ i =
@@ -647,7 +639,7 @@ getNeighbours (Board x) cell =
         |> List.filterMap identity
 
 
-countNeighbourStates : Minesweeper -> Cell -> CellState Int
+countNeighbourStates : Board -> Cell -> CellState Int
 countNeighbourStates board origin =
     getNeighbours board origin
         |> Array.fromList
