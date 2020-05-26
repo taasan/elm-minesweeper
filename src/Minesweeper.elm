@@ -112,11 +112,7 @@ boardState2String state =
 
 flag : Cell -> Board -> ( Board, Maybe TimerEvent )
 flag cell board =
-    let
-        { state } =
-            board
-    in
-    ( case state of
+    ( case board.state of
         Playing ->
             updateCell board <| flagCell board.useUncertainFlag cell
 
@@ -141,15 +137,11 @@ updateCell board cell =
         newState =
             case cell of
                 Exposed _ Exploded ->
-                    let
-                        s =
-                            if stats.exploded >= board.lives then
-                                Done GameOver Types.NotRevealed
+                    if stats.exploded >= board.lives then
+                        Done GameOver Types.NotRevealed
 
-                            else
-                                Playing
-                    in
-                    s
+                    else
+                        Playing
 
                 _ ->
                     Playing
@@ -742,21 +734,17 @@ getNeighbourCoordinates index grid =
             , col = torusAdjust cols col
             }
 
-        addCoordinates_ a b =
-            add a <| mapNzpCoordinate b
-
-        res =
-            case topology of
-                Plane ->
-                    List.map (addCoordinates_ origin) neighbours
-                        |> List.filter (contains grid)
-
-                Toroid ->
-                    List.map (torusMap << addCoordinates_ origin) neighbours
+        addCoordinates_ =
+            add origin
     in
     -- No need to filter, since res never contains original coordinate
-    -- |> List.filter (\x -> index /= calculateIndex grid x)
-    res
+    case topology of
+        Plane ->
+            List.map addCoordinates_ neighbours
+                |> List.filter (contains grid)
+
+        Toroid ->
+            List.map (torusMap << addCoordinates_) neighbours
 
 
 beginner : GridType -> Topology -> Level
@@ -798,61 +786,38 @@ add a b =
     { row = a.row + b.row, col = a.col + b.col }
 
 
-type NZP
-    = N -- -1
-    | Z --  0
-    | P --  1
-
-
-hexNeighbours : Coordinate -> List { row : NZP, col : NZP }
+hexNeighbours : Coordinate -> List Coordinate
 hexNeighbours origin =
     if isEven origin.row then
-        [ { row = P, col = Z }
-        , { row = P, col = N }
-        , { row = Z, col = N }
-        , { row = N, col = N }
-        , { row = N, col = Z }
-        , { row = Z, col = P }
+        [ { row = 1, col = 0 }
+        , { row = 1, col = -1 }
+        , { row = 0, col = -1 }
+        , { row = -1, col = -1 }
+        , { row = -1, col = 0 }
+        , { row = 0, col = 1 }
         ]
 
     else
-        [ { row = P, col = P }
-        , { row = P, col = Z }
-        , { row = Z, col = N }
-        , { row = N, col = Z }
-        , { row = N, col = P }
-        , { row = Z, col = P }
+        [ { row = 1, col = 1 }
+        , { row = 1, col = 0 }
+        , { row = 0, col = -1 }
+        , { row = -1, col = 0 }
+        , { row = -1, col = 1 }
+        , { row = 0, col = 1 }
         ]
 
 
-squareNeighbours : List { row : NZP, col : NZP }
+squareNeighbours : List Coordinate
 squareNeighbours =
-    [ { row = N, col = N }
-    , { row = N, col = Z }
-    , { row = N, col = P }
-    , { row = Z, col = N }
-    , { row = Z, col = P }
-    , { row = P, col = N }
-    , { row = P, col = Z }
-    , { row = P, col = P }
+    [ { row = -1, col = -1 }
+    , { row = -1, col = 0 }
+    , { row = -1, col = 1 }
+    , { row = 0, col = -1 }
+    , { row = 0, col = 1 }
+    , { row = 1, col = -1 }
+    , { row = 1, col = 0 }
+    , { row = 1, col = 1 }
     ]
-
-
-mapNzpCoordinate : { row : NZP, col : NZP } -> Coordinate
-mapNzpCoordinate a =
-    let
-        n2c x =
-            case x of
-                N ->
-                    -1
-
-                Z ->
-                    0
-
-                P ->
-                    1
-    in
-    { row = n2c a.row, col = n2c a.col }
 
 
 calculateCoordinate : { a | cols : Int } -> Int -> Coordinate
