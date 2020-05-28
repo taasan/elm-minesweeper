@@ -28,7 +28,7 @@ import Lib
         )
 import Random exposing (Seed)
 import Random.Set as Random
-import Set
+import Set exposing (Set)
 import Svg
     exposing
         ( g
@@ -153,21 +153,26 @@ updateCell board cell =
     }
 
 
-revealAll : Board -> ( Board, Maybe TimerEvent )
-revealAll board =
+revealSingle : Int -> Cell -> Cell
+revealSingle threats cell =
+    case cell of
+        New i (Just mine) ->
+            Exposed i (Mined mine)
+
+        New i _ ->
+            Exposed i <| Open threats
+
+        _ ->
+            cell
+
+
+revealAll : Array Int -> Board -> ( Board, Maybe TimerEvent )
+revealAll threatMap board =
     case board.state of
         Done status Types.NotRevealed ->
             let
                 mapCell cell =
-                    case cell of
-                        New i (Just mine) ->
-                            Exposed i (Mined mine)
-
-                        New i _ ->
-                            Exposed i <| Open (countNeighbourStates board cell).mined
-
-                        _ ->
-                            cell
+                    revealSingle (Maybe.withDefault -1 (Array.get (getIndex cell) threatMap)) cell
             in
             ( { board
                 | state = Done status Types.Revealed
@@ -235,6 +240,22 @@ revealNeighbours cell board =
 poke : Cell -> Board -> ( Board, Maybe TimerEvent )
 poke cell board =
     let
+        mapThreats : Cell -> Int
+        mapThreats =
+            .mined << countNeighbourStates board
+
+        threatMap : () -> Array Int
+        threatMap _ =
+            Array.map mapThreats board.cells
+
+        neighbourMap : () -> Array ( Int, List Int )
+        neighbourMap _ =
+            Array.map
+                (\c ->
+                    ( mapThreats c, (List.map getIndex << getNeighbours board) c )
+                )
+                board.cells
+
         newBoard =
             if board.state /= Playing then
                 board
@@ -261,6 +282,44 @@ poke cell board =
 
                             _ ->
                                 board
+
+                    New i Nothing ->
+                        let
+                            numThreats =
+                                mapThreats cell
+                        in
+                        if numThreats /= 0 then
+                            updateCell board <| revealSingle numThreats cell
+
+                        else
+                            let
+                                safeCells : Set Int
+                                safeCells =
+                                    collectSafe board.level (neighbourMap ()) i Set.empty
+
+                                newCells =
+                                    Array.map
+                                        (\c ->
+                                            case c of
+                                                New idx _ ->
+                                                    if Set.member idx safeCells then
+                                                        Exposed idx <| Open <| threats idx
+
+                                                    else
+                                                        c
+
+                                                _ ->
+                                                    c
+                                        )
+                                        board.cells
+
+                                threatMap_ =
+                                    threatMap ()
+
+                                threats n =
+                                    Maybe.withDefault -1 (Array.get n threatMap_)
+                            in
+                            { board | cells = newCells, stats = countStates newCells }
 
                     New i m ->
                         let
@@ -296,10 +355,10 @@ poke cell board =
         ( newBoard, Nothing )
 
     else if gameOver || completed then
-        revealAll newBoard
+        revealAll (threatMap ()) newBoard
 
     else if gameWon newBoard then
-        revealAll <| { newBoard | state = Done Completed Types.NotRevealed }
+        revealAll (threatMap ()) <| { newBoard | state = Done Completed Types.NotRevealed }
 
     else
         ( newBoard, Nothing )
@@ -649,6 +708,30 @@ countStates cells =
     in
     cells
         |> Array.foldl folder initial
+
+
+{-| infoMap Array[cell index] (threatCount, neighbours)
+-}
+collectSafe : Level -> Array ( Int, List Int ) -> Int -> Set Int -> Set Int
+collectSafe level infoMap origin acc =
+    let
+        safe =
+            Set.insert origin acc
+    in
+    case Array.get origin infoMap of
+        -- 0 threats, safe to open neighbours
+        Just ( 0, neighbours ) ->
+            if Set.member origin acc then
+                -- already visited
+                safe
+
+            else
+                neighbours
+                    |> List.filter (\x -> (not << Set.member x) acc)
+                    |> List.foldl (collectSafe level infoMap) safe
+
+        _ ->
+            safe
 
 
 
