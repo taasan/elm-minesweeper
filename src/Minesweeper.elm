@@ -56,6 +56,7 @@ import Types
         , Flag(..)
         , GridType(..)
         , Level
+        , Mine
         , Msg(..)
         , Revealed(..)
         , RevealedState(..)
@@ -138,7 +139,7 @@ updateCell board cell =
             case cell of
                 Exposed _ Exploded ->
                     if stats.exploded >= board.lives then
-                        Done GameOver Types.NotRevealed
+                        Done GameOver NotRevealed
 
                     else
                         Playing
@@ -169,13 +170,13 @@ revealSingle threats cell =
 revealAll : Array Int -> Board -> ( Board, Maybe TimerEvent )
 revealAll threatMap board =
     case board.state of
-        Done status Types.NotRevealed ->
+        Done status NotRevealed ->
             let
                 mapCell cell =
                     revealSingle (Maybe.withDefault -1 (Array.get (getIndex cell) threatMap)) cell
             in
             ( { board
-                | state = Done status Types.Revealed
+                | state = Done status Revealed
                 , cells = Array.map mapCell board.cells
               }
             , Just Stop
@@ -351,7 +352,7 @@ poke cell board =
         revealAll (threatMap ()) newBoard
 
     else if gameWon newBoard then
-        revealAll (threatMap ()) <| { newBoard | state = Done Completed Types.NotRevealed }
+        revealAll (threatMap ()) <| { newBoard | state = Done Completed NotRevealed }
 
     else
         ( newBoard, Nothing )
@@ -477,7 +478,7 @@ createCells level seed =
         mineSet =
             Tuple.first <| Random.step (Random.set mines (Random.int 0 (rows * cols - 1))) seed
 
-        randomMine_ : a -> Int -> ( Int, Types.Mine )
+        randomMine_ : a -> Int -> ( Int, Mine )
         randomMine_ _ i =
             ( i
             , Random.initialSeed i
@@ -485,7 +486,7 @@ createCells level seed =
                 |> (Tuple.first >> Random.step randomMine >> Tuple.first)
             )
 
-        mineDict : Dict.Dict Int Types.Mine
+        mineDict : Dict.Dict Int Mine
         mineDict =
             Set.toList mineSet
                 |> List.indexedMap randomMine_
