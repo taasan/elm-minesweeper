@@ -266,22 +266,15 @@ poke cell board =
                         countNeighbourStates board cell
                 in
                 case cell of
-                    Exposed _ r ->
-                        case r of
-                            Open t ->
-                                case t of
-                                    0 ->
-                                        board
+                    Exposed _ (Open 0) ->
+                        board
 
-                                    _ ->
-                                        if flagged + exploded - flaggedUncertain >= mined then
-                                            revealNeighbours cell board
+                    Exposed _ (Open _) ->
+                        if flagged + exploded - flaggedUncertain >= mined then
+                            revealNeighbours cell board
 
-                                        else
-                                            board
-
-                            _ ->
-                                board
+                        else
+                            board
 
                     New i Nothing ->
                         let
