@@ -317,22 +317,41 @@ statusBar model =
                 |> Symbol.Count
                 |> Symbol.toString
                 |> text
+
+        itemClass =
+            "SvgMinesweeper__Controls__Item"
     in
     div [ class "SvgMinesweeper__Controls" ]
-        [ span [ title (String.fromInt elapsedTime) ] [ timer ]
+        [ span
+            [ title (String.fromInt elapsedTime), class "Timer" ]
+            [ timer ]
         , span
-            [ onClick TogglePause ]
+            [ onClick
+                (case state of
+                    Done _ ->
+                        RandomGame
+
+                    _ ->
+                        TogglePause
+                )
+            ]
             [ span
                 [ attribute "role" "img"
                 , attribute "aria-label" "State"
                 ]
                 [ text renderState ]
             ]
-        , span
-            [ onClick RandomGame ]
-            [ text (Minesweeper.boardState2String state) ]
-        , span
-            [ onClick <| NewGame ]
+        , div
+            [ onClick RandomGame, class itemClass ]
+            [ span
+                [ class "FormatNumber" ]
+                [ text <| Symbol.toString (Symbol.Count (level.mines - flagged - exploded)) ]
+            , span
+                [ attribute "role" "img" ]
+                [ text <| Symbol.toString (Symbol.Flag Normal) ]
+            ]
+        , div
+            [ onClick NewGame, class itemClass ]
             [ span
                 [ attribute "role" "img"
                 , attribute "aria-label" "menu"
