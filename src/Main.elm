@@ -123,7 +123,7 @@ init flags =
                     { theme = solarized, themes = [ solarized, defaultTheme ] }
 
         model_ =
-            mkModel <| Minesweeper.beginner Hex Toroid
+            mkModel (Minesweeper.beginner Hex Toroid)
 
         model =
             { model_ | theme = saved.theme, themes = saved.themes }
@@ -182,7 +182,7 @@ update msg model =
                 ret model
 
             else
-                ret <|
+                ret
                     { model
                         | board = mkBoard rec
                         , elapsedTime = ( 0, Nothing )
@@ -264,7 +264,7 @@ statusBar model =
             rec
 
         stateSymbol _ =
-            Symbol.toString <| Symbol.Board state
+            Symbol.toString (Symbol.Board state)
 
         { flagged, exploded } =
             rec.stats
@@ -282,7 +282,7 @@ statusBar model =
                     if state == Playing || Types.isDone state then
                         let
                             f n s =
-                                String.repeat n <| Symbol.toString s
+                                String.repeat n (Symbol.toString s)
                         in
                         if Types.isWon state || state == Playing then
                             let
@@ -345,10 +345,10 @@ statusBar model =
             [ onClick RandomGame, class itemClass ]
             [ span
                 [ class "FormatNumber" ]
-                [ text <| Symbol.toString (Symbol.Count (level.mines - flagged - exploded)) ]
+                [ text (Symbol.toString (Symbol.Count (level.mines - flagged - exploded))) ]
             , span
                 [ attribute "role" "img" ]
-                [ text <| Symbol.toString (Symbol.Flag Normal) ]
+                [ text (Symbol.toString (Symbol.Flag Normal)) ]
             ]
         , div
             [ onClick NewGame, class itemClass ]
@@ -356,7 +356,7 @@ statusBar model =
                 [ attribute "role" "img"
                 , attribute "aria-label" "menu"
                 ]
-                [ text <| Symbol.toString Symbol.Hamburger ]
+                [ text (Symbol.toString Symbol.Hamburger) ]
             ]
         ]
 

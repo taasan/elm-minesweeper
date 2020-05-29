@@ -116,7 +116,7 @@ flag : Cell -> Board -> ( Board, Maybe TimerEvent )
 flag cell board =
     ( case board.state of
         Playing ->
-            updateCell board <| flagCell board.useUncertainFlag cell
+            updateCell board (flagCell board.useUncertainFlag cell)
 
         _ ->
             board
@@ -162,7 +162,7 @@ revealSingle threats cell =
             Exposed i (Mined mine)
 
         New i _ ->
-            Exposed i <| Open threats
+            Exposed i (Open threats)
 
         _ ->
             cell
@@ -223,7 +223,7 @@ revealNeighbours cell board =
 
             folder : Cell -> Board -> Board
             folder c b =
-                Tuple.first <| poke c b
+                Tuple.first (poke c b)
         in
         getNeighbours board cell
             -- Only poke new cells
@@ -276,7 +276,7 @@ poke cell board =
                                 mapThreats cell
                         in
                         if numThreats /= 0 then
-                            updateCell board <| revealSingle numThreats cell
+                            (updateCell board << revealSingle numThreats) cell
 
                         else
                             let
@@ -290,7 +290,7 @@ poke cell board =
                                             case c of
                                                 New idx _ ->
                                                     if Set.member idx safeCells then
-                                                        Exposed idx <| Open <| threats idx
+                                                        (Exposed idx << Open << threats) idx
 
                                                     else
                                                         c
@@ -361,17 +361,17 @@ update msg (Board board) =
     in
     case board.state of
         NotInitialized ->
-            update msg <| mkBoard board
+            update msg (mkBoard board)
 
         Initialized ->
             let
                 ( x, _ ) =
-                    update msg <| Board { board | state = Playing }
+                    (update msg << Board) { board | state = Playing }
             in
             ( x, Just Start )
 
         Playing ->
-            Tuple.mapFirst Board <| cmd cell board
+            Tuple.mapFirst Board (cmd cell board)
 
         Done GameOver ->
             ( Board board, Just Stop )
@@ -466,7 +466,9 @@ createCells level seed =
             level
 
         mineSet =
-            Tuple.first <| Random.step (Random.set mines (Random.int 0 (rows * cols - 1))) seed
+            seed
+                |> Random.step (Random.set mines (Random.int 0 (rows * cols - 1)))
+                |> Tuple.first
 
         randomMine_ : a -> Int -> ( Int, Mine )
         randomMine_ _ i =
@@ -559,34 +561,29 @@ view (Board board) =
             level
 
         mapCell i cell =
-            let
-                coordinate =
-                    calculateCoordinate level i
-            in
-            mapSingleCell coordinate cell
+            mapSingleCell (calculateCoordinate level i) cell
 
         mapSingleCell : Coordinate -> Cell -> Html Msg
         mapSingleCell { row, col } cell =
             let
-                x_ =
-                    String.fromFloat <|
-                        toFloat col
-                            * cellSize
-                            + (if isOdd row then
-                                offsets.xOffset
+                offset =
+                    if isOdd row then
+                        offsets.xOffset
 
-                               else
-                                0
-                              )
+                    else
+                        0
+
+                x_ =
+                    String.fromFloat (toFloat col * cellSize + offset)
 
                 y_ =
-                    String.fromFloat <| toFloat row * cellSize * offsets.yFactor
+                    String.fromFloat (toFloat row * cellSize * offsets.yFactor)
 
                 cellAttributes =
                     [ A.x x_
                     , A.y y_
-                    , A.width <| String.fromFloat cellSize
-                    , A.height <| String.fromFloat cellSize
+                    , A.width (String.fromFloat cellSize)
+                    , A.height (String.fromFloat cellSize)
                     ]
             in
             svg cellAttributes [ viewCell state type_ cell ]
@@ -614,7 +611,10 @@ view (Board board) =
                                 , ( c.row + rows, c.col - cols )
                                 , ( c.row - rows, c.col + cols )
                                 ]
-                                |> List.map (\( row_, col_ ) -> mapSingleCell { row = row_, col = col_ } cell)
+                                |> List.map
+                                    (\( row_, col_ ) ->
+                                        mapSingleCell { row = row_, col = col_ } cell
+                                    )
                     in
                     Array.toList cells
                         |> List.indexedMap Tuple.pair
@@ -648,9 +648,9 @@ view (Board board) =
         attributes =
             [ A.preserveAspectRatio "xMidYMid meet"
             , A.class "SvgBoard"
-            , attribute "data-grid" <| gridTypeToString type_
-            , attribute "data-s" <| boardState2String <| state
-            , A.viewBox <| SvgHelper.viewBox viewBox_
+            , attribute "data-grid" (gridTypeToString type_)
+            , attribute "data-s" (boardState2String state)
+            , A.viewBox (SvgHelper.viewBox viewBox_)
             ]
     in
     svg
@@ -664,13 +664,8 @@ view (Board board) =
 
 getNeighbours : Board -> Cell -> List Cell
 getNeighbours x cell =
-    let
-        get_ : Coordinate -> Maybe Cell
-        get_ i =
-            Array.get (calculateIndex x.level i) x.cells
-    in
     getNeighbourCoordinates (getIndex cell) x.level
-        |> List.map get_
+        |> List.map (\i -> Array.get (calculateIndex x.level i) x.cells)
         |> List.filterMap identity
 
 
@@ -737,10 +732,10 @@ mkLevel : Level -> Level
 mkLevel x =
     let
         minMines =
-            ceiling <| (toFloat <| rows * cols) * 0.1
+            ceiling (toFloat (rows * cols) * 0.1)
 
         maxMines =
-            floor <| (toFloat <| rows * cols) * 0.5
+            floor (toFloat (rows * cols) * 0.5)
 
         cols =
             clamp minDim maxDim x.cols
@@ -804,7 +799,7 @@ getNeighbourCoordinates index grid =
         addCoordinates_ =
             add origin
     in
-    -- No need to filter, since res never contains original coordinate
+    -- No need to filter out origin, since res never contains original coordinate
     case topology of
         Plane ->
             List.map addCoordinates_ neighbours
@@ -1031,21 +1026,21 @@ viewCell boardState gridType cell =
             cellState cell
 
         center =
-            String.fromFloat <| cellSize / 2
+            String.fromFloat (cellSize / 2)
 
         text__ t =
             text_
                 (List.filterMap identity
-                    [ Just <| A.class "ct"
-                    , Just <| A.x center
-                    , Just <| A.y center
-                    , Just <| A.dominantBaseline "central"
-                    , Just <| A.textAnchor "middle"
-                    , Just <| A.fill "white"
-                    , Just <| A.fontSize center
+                    [ Just (A.class "ct")
+                    , Just (A.x center)
+                    , Just (A.y center)
+                    , Just (A.dominantBaseline "central")
+                    , Just (A.textAnchor "middle")
+                    , Just (A.fill "white")
+                    , Just (A.fontSize center)
                     , if not open then
                         -- emoji
-                        Just <| attribute "role" "img"
+                        Just (attribute "role" "img")
 
                       else
                         Nothing
@@ -1054,7 +1049,7 @@ viewCell boardState gridType cell =
                 [ text t ]
 
         symbol s =
-            text__ <| Symbol.toString s
+            text__ (Symbol.toString s)
 
         ( state, content ) =
             case cell of
@@ -1077,7 +1072,7 @@ viewCell boardState gridType cell =
                     ( 1, [ background ] )
 
                 Exposed _ (Open n) ->
-                    ( 1, [ background, symbol <| Count n ] )
+                    ( 1, [ background, symbol (Count n) ] )
 
                 Flagged _ f m ->
                     let
@@ -1105,10 +1100,10 @@ viewCell boardState gridType cell =
                             else
                                 ( Symbol.Flag f, slab )
                     in
-                    ( cssState, [ el, symbol <| s ] )
+                    ( cssState, [ el, symbol s ] )
 
                 Exposed _ Exploded ->
-                    ( 4, [ background, symbol <| ExplodedMine ] )
+                    ( 4, [ background, symbol ExplodedMine ] )
 
         viewBox =
             List.map String.fromFloat [ 0, 0, cellSize, cellSize ]
@@ -1118,7 +1113,7 @@ viewCell boardState gridType cell =
         attributes_ =
             [ A.class "c"
             , viewBox
-            , attribute "data-s" <| String.fromInt state
+            , attribute "data-s" (String.fromInt state)
             ]
 
         attachHandlers =
@@ -1137,13 +1132,13 @@ viewCell boardState gridType cell =
 
         optionalAttributes =
             [ if mined && (completed || gameOver) then
-                Just <| attribute "data-m" "t"
+                Just (attribute "data-m" "t")
 
               else
                 Nothing
             , case cell of
                 Exposed _ (Open threats) ->
-                    Just <| attribute "data-t" <| String.fromInt threats
+                    Just (attribute "data-t" (String.fromInt threats))
 
                 _ ->
                     Nothing

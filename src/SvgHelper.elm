@@ -84,7 +84,7 @@ defs : Svg msg
 defs =
     let
         csHalf =
-            String.fromFloat <| cellSize / 2
+            String.fromFloat (cellSize / 2)
     in
     svg [ Html.Attributes.style "visibility" "hidden" ]
         [ Svg.defs []
@@ -92,15 +92,15 @@ defs =
                 [ A.id "circle"
                 , A.cx csHalf
                 , A.cy csHalf
-                , A.r <| String.fromFloat <| (cellSize / 2) - 2.0
+                , A.r (String.fromFloat ((cellSize / 2) - 2.0))
                 ]
                 []
             , polygon
                 [ A.id "HEX"
                 , A.fillOpacity "1"
                 , A.strokeWidth "0"
-                , A.width <| String.fromFloat cellSize
-                , A.height <| String.fromFloat cellSize
+                , A.width (String.fromFloat cellSize)
+                , A.height (String.fromFloat cellSize)
                 , A.points hexPoints
                 ]
                 []
@@ -108,8 +108,8 @@ defs =
                 [ A.id "SQUARE"
                 , A.fillOpacity "1"
                 , A.strokeWidth "0"
-                , A.width <| String.fromFloat cellSize
-                , A.height <| String.fromFloat cellSize
+                , A.width (String.fromFloat cellSize)
+                , A.height (String.fromFloat cellSize)
                 , A.points squarePoints
                 ]
                 []
