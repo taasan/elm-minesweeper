@@ -23,6 +23,7 @@ import Lib
     exposing
         ( between
         , bool2int
+        , flip
         , isEven
         , isOdd
         )
@@ -919,11 +920,6 @@ contains { rows, cols } { row, col } =
 -- CELL
 
 
-mapState : (Bool -> b) -> Cell -> CellState b
-mapState f cell =
-    mapCellState f <| cellState cell
-
-
 mapCellState : (Bool -> b) -> CellState Bool -> CellState b
 mapCellState f { flagged, flaggedUncertain, mined, exploded, new, revealed, open } =
     { flagged = f flagged
@@ -938,7 +934,7 @@ mapCellState f { flagged, flaggedUncertain, mined, exploded, new, revealed, open
 
 mapStateAndLift : (Bool -> b) -> (b -> b -> b) -> (Cell -> CellState b -> CellState b)
 mapStateAndLift f g x y =
-    liftState2 g (mapState f x) y
+    liftState2 g ((flip mapCellState << cellState) x f) y
 
 
 liftState2 : (a -> b -> b) -> (CellState a -> CellState b -> CellState b)

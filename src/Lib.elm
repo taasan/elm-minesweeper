@@ -1,6 +1,7 @@
 module Lib exposing
     ( between
     , bool2int
+    , flip
     , isEven
     , isOdd
     )
@@ -38,3 +39,8 @@ bool2int b =
 
     else
         0
+
+
+flip : (c -> b -> a) -> b -> c -> a
+flip f x y =
+    f y x
