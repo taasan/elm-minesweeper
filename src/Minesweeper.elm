@@ -101,10 +101,10 @@ boardState2String state =
         Paused ->
             "PAUSED"
 
-        Done Completed _ ->
+        Done Completed ->
             "COMPLETED"
 
-        Done GameOver _ ->
+        Done GameOver ->
             "GAME_OVER"
 
         Demo ->
@@ -139,7 +139,7 @@ updateCell board cell =
             case cell of
                 Exposed _ Exploded ->
                     if stats.exploded >= board.lives then
-                        Done GameOver NotRevealed
+                        Done GameOver
 
                     else
                         Playing
@@ -169,27 +169,19 @@ revealSingle threats cell =
 
 revealAll : Array Int -> Board -> ( Board, Maybe TimerEvent )
 revealAll threatMap board =
-    case board.state of
-        Done status NotRevealed ->
-            let
-                mapCell cell =
-                    revealSingle (Maybe.withDefault -1 (Array.get (getIndex cell) threatMap)) cell
-            in
-            ( { board
-                | state = Done status Revealed
-                , cells = Array.map mapCell board.cells
-              }
-            , Just Stop
-            )
-
-        _ ->
-            ( board, Nothing )
+    let
+        mapCell cell =
+            revealSingle (Maybe.withDefault -1 (Array.get (getIndex cell) threatMap)) cell
+    in
+    ( { board | cells = Array.map mapCell board.cells }
+    , Just Stop
+    )
 
 
 gameWon : Board -> Bool
 gameWon board =
     case board.state of
-        Done Completed _ ->
+        Done Completed ->
             True
 
         Playing ->
@@ -342,17 +334,14 @@ poke cell board =
                     _ ->
                         board
 
-        ( completed, gameOver, revealed ) =
+        ( completed, gameOver ) =
             doneState newBoard.state
     in
-    if revealed then
-        ( newBoard, Nothing )
-
-    else if gameOver || completed then
+    if gameOver || completed then
         revealAll (threatMap ()) newBoard
 
     else if gameWon newBoard then
-        revealAll (threatMap ()) <| { newBoard | state = Done Completed NotRevealed }
+        revealAll (threatMap ()) { newBoard | state = Done Completed }
 
     else
         ( newBoard, Nothing )
@@ -383,10 +372,10 @@ update msg (Board board) =
         Playing ->
             Tuple.mapFirst Board <| cmd cell board
 
-        Done GameOver _ ->
+        Done GameOver ->
             ( Board board, Just Stop )
 
-        Done Completed _ ->
+        Done Completed ->
             ( Board board, Just Stop )
 
         _ ->
@@ -1080,7 +1069,7 @@ viewCell boardState gridType cell =
                     ( 0
                     , [ background
                       , symbol <|
-                            if boardState == Done Completed Revealed then
+                            if boardState == Done Completed then
                                 Symbol.Disarmed Uncertain
 
                             else
@@ -1104,7 +1093,7 @@ viewCell boardState gridType cell =
                                 2
 
                         slab =
-                            if revealed then
+                            if completed || gameOver then
                                 background
 
                             else
@@ -1114,7 +1103,7 @@ viewCell boardState gridType cell =
                             if gameOver && m == Nothing then
                                 ( Symbol.Flag Incorrect, slab )
 
-                            else if completed || revealed then
+                            else if completed then
                                 ( Symbol.Disarmed Normal, slab )
 
                             else
@@ -1151,7 +1140,7 @@ viewCell boardState gridType cell =
                     Relax
 
         optionalAttributes =
-            [ if mined && revealed then
+            [ if mined && (completed || gameOver) then
                 Just <| attribute "data-m" "t"
 
               else
@@ -1169,7 +1158,7 @@ viewCell boardState gridType cell =
                 Nothing
             ]
 
-        ( completed, gameOver, revealed ) =
+        ( completed, gameOver ) =
             doneState boardState
 
         attributes =

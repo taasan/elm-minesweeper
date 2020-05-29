@@ -160,7 +160,7 @@ toString s =
 
         Board boardState ->
             case boardState of
-                Done GameOver _ ->
+                Done GameOver ->
                     -- 🤬
                     "\u{1F92C}"
 

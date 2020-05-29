@@ -260,18 +260,21 @@ statusBar model =
         rec =
             getState board
 
-        { state, lives } =
+        { state, lives, level } =
             rec
 
         stateSymbol _ =
             Symbol.toString <| Symbol.Board state
+
+        { flagged, exploded } =
+            rec.stats
 
         renderState =
             case state of
                 NotInitialized ->
                     stateSymbol ()
 
-                Done GameOver _ ->
+                Done GameOver ->
                     stateSymbol ()
 
                 _ ->

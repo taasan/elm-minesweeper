@@ -68,7 +68,7 @@ type BoardState
     | Initialized
     | Playing
     | Paused
-    | Done DoneState RevealedState
+    | Done DoneState
     | Demo
 
 
@@ -185,7 +185,7 @@ type alias Theme =
 isDone : BoardState -> Bool
 isDone s =
     case s of
-        Done _ _ ->
+        Done _ ->
             True
 
         _ ->
@@ -195,21 +195,21 @@ isDone s =
 isWon : BoardState -> Bool
 isWon s =
     case s of
-        Done Completed _ ->
+        Done Completed ->
             True
 
         _ ->
             False
 
 
-doneState : BoardState -> ( Bool, Bool, Bool )
+doneState : BoardState -> ( Bool, Bool )
 doneState state =
     case state of
-        Done s r ->
-            ( s == Completed, s == GameOver, r == Revealed )
+        Done s ->
+            ( s == Completed, s == GameOver )
 
         _ ->
-            ( False, False, False )
+            ( False, False )
 
 
 type TimerEvent
