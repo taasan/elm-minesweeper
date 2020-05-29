@@ -154,9 +154,15 @@ toString s =
                         |> String.toList
                         |> List.map (String.toInt << String.fromChar)
                         |> List.filterMap identity
+
+                number =
+                    String.fromList (List.map map digits)
             in
-            List.map map digits
-                |> String.fromList
+            if num < 0 then
+                "-" ++ number
+
+            else
+                number
 
         Board boardState ->
             case boardState of
