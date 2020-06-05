@@ -263,50 +263,34 @@ statusBar model =
         { state, lives, level } =
             rec
 
-        stateSymbol _ =
-            Symbol.toString (Symbol.Board state)
-
         { flagged, exploded } =
             rec.stats
 
         renderState =
             case state of
-                NotInitialized ->
-                    stateSymbol ()
+                Playing ->
+                    let
+                        f n s =
+                            String.repeat n (Symbol.toString s)
 
-                Done GameOver ->
-                    stateSymbol ()
-
-                _ ->
-                    -- TODO simplify
-                    if state == Playing || Types.isDone state then
-                        let
-                            f n s =
-                                String.repeat n (Symbol.toString s)
-                        in
-                        if Types.isWon state || state == Playing then
-                            let
-                                { stats } =
-                                    rec
-                            in
-                            if lives > 0 then
-                                f stats.exploded Symbol.ExplodedMine
-                                    ++ f (lives - stats.exploded) (Symbol.Disarmed Normal)
-
-                            else
-                                Symbol.toString
-                                    (if state == Playing then
-                                        Symbol.Disarmed Normal
-
-                                     else
-                                        Symbol.ExplodedMine
-                                    )
-
-                        else
-                            stateSymbol ()
+                        { stats } =
+                            rec
+                    in
+                    if lives > 0 then
+                        f stats.exploded Symbol.ExplodedMine
+                            ++ f (lives - stats.exploded) Symbol.Heart
 
                     else
-                        stateSymbol ()
+                        Symbol.toString
+                            (if state == Playing then
+                                Symbol.Heart
+
+                             else
+                                Symbol.ExplodedMine
+                            )
+
+                _ ->
+                    Symbol.toString (Symbol.Board state)
 
         elapsedTime =
             elapsed model.currentTime model.elapsedTime // 1000

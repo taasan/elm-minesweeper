@@ -42,6 +42,7 @@ type Symbol
     | Count Int
     | Board BoardState
     | Hamburger
+    | Heart
 
 
 toString : Symbol -> String
@@ -170,14 +171,34 @@ toString s =
                     -- 🤬
                     "\u{1F92C}"
 
+                Done Completed ->
+                    -- 🏆
+                    "🏆"
+
                 Paused ->
                     -- 🧘
                     "\u{1F9D8}"
 
-                _ ->
+                NotInitialized ->
+                    -- 🤫
+                    "\u{1F92B}"
+
+                Initialized ->
+                    -- 🤟
+                    "\u{1F91F}"
+
+                Playing ->
+                    -- 🎮
+                    "🎮"
+
+                Demo ->
                     -- 🎯
                     "🎯"
 
         Hamburger ->
             -- "🍔"
             "🍔"
+
+        Heart ->
+            -- ❤️
+            "❤️"
