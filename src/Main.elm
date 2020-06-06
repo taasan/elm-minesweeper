@@ -295,12 +295,30 @@ statusBar model =
         elapsedTime =
             elapsed model.currentTime model.elapsedTime // 1000
 
+        minutes =
+            elapsedTime // 60
+
+        seconds =
+            modBy 60 elapsedTime
+
+        zero : Char
+        zero =
+            Symbol.Count 0
+                |> Symbol.toString
+                >> String.uncons
+                >> Maybe.withDefault ( '0', "" )
+                >> Tuple.first
+
+        zeroPad : Int -> String
+        zeroPad =
+            Symbol.Count >> Symbol.toString >> String.padLeft 2 zero
+
         timer : Html msg
         timer =
-            elapsedTime
-                |> Symbol.Count
-                |> Symbol.toString
-                |> text
+            [ minutes, seconds ]
+                |> List.map zeroPad
+                >> String.join ":"
+                >> text
 
         itemClass =
             "SvgMinesweeper__Controls__Item"
