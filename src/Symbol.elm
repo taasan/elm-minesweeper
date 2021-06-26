@@ -48,91 +48,69 @@ type Symbol
 toString : Symbol -> String
 toString s =
     case s of
-        -- 🤒
         Mine A ->
-            "\u{1F912}"
+            "🤒"
 
-        -- 😷
         Mine B ->
             "😷"
 
-        -- 🤮
         Mine C ->
-            "\u{1F92E}"
+            "🤮"
 
-        -- 🤢
         Mine D ->
-            "\u{1F922}"
+            "🤢"
 
-        -- 🤡
         Mine E ->
-            "\u{1F921}"
+            "🤡"
 
-        -- 🧟
         Mine F ->
-            "\u{1F9DF}"
+            "🧟"
 
-        -- 🤥
         Mine G ->
-            "\u{1F925}"
+            "🤥"
 
-        -- 🤕
         Mine H ->
-            "\u{1F915}"
+            "🤕"
 
-        -- 🤧
         Mine I ->
-            "\u{1F927}"
+            "🤧"
 
-        -- 👻
         Mine J ->
             "👻"
 
-        -- 🥵
         Mine K ->
-            "\u{1F975}"
+            "🥵"
 
-        -- 🥶
         Mine L ->
-            "\u{1F976}"
+            "🥶"
 
-        -- 👹
         Mine M ->
             "👹"
 
-        -- 👺
         Mine N ->
             "👺"
 
-        -- 🦠
         Mine O ->
-            "\u{1F9A0}"
+            "🦠"
 
-        -- 🇳🇴
         Flag Special ->
             "🇳🇴"
 
-        -- ☣️
         Flag Normal ->
             "☣️"
 
-        -- ❓
         Flag Uncertain ->
             "❓"
 
-        -- 💩
         Flag Incorrect ->
             "💩"
 
-        -- 🥰
         Disarmed Normal ->
-            "\u{1F970}"
+            "🥰"
 
-        -- 🥺
         Disarmed _ ->
-            "\u{1F97A}"
+            "🥺"
 
-        -- 💀
         ExplodedMine ->
             "💀"
 
@@ -144,9 +122,12 @@ toString s =
                 thai =
                     3664
 
+                ascii =
+                    Char.toCode '0'
+
                 map : Int -> Char
                 map n =
-                    Char.fromCode <| thai + n
+                    Char.fromCode (tamil + n)
 
                 --Char.toCode '０' + n
                 digits : List Int
@@ -168,37 +149,28 @@ toString s =
         Board boardState ->
             case boardState of
                 Done GameOver ->
-                    -- 🤬
-                    "\u{1F92C}"
+                    "🤬"
 
                 Done Completed ->
-                    -- 🏆
                     "🏆"
 
                 Paused ->
-                    -- 🧘
-                    "\u{1F9D8}"
+                    "🧘"
 
                 NotInitialized ->
-                    -- 🤫
-                    "\u{1F92B}"
+                    "🤫"
 
                 Initialized ->
-                    -- 🤟
-                    "\u{1F91F}"
+                    "🤟"
 
                 Playing ->
-                    -- 🎮
                     "🎮"
 
                 Demo ->
-                    -- 🎯
                     "🎯"
 
         Hamburger ->
-            -- "🍔"
             "🍔"
 
         Heart ->
-            -- ❤️
             "❤️"
