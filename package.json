@@ -2,19 +2,26 @@
   "name": "minesweeper",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "directories": {
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "parcel index.html",
+    "build": "parcel build index.html",
+    "lint": "elm-format --validate src/",
+    "test": "elm-test-rs",
+    "postinstall": "elm-tooling install"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "cssnano": "^4.1.10",
-    "elm-hot": "^1.1.4",
-    "node-elm-compiler": "^5.0.4",
-    "sass": "^1.26.5"
-  }
+    "@parcel/packager-raw-url": "^2.0.0-beta.2",
+    "@parcel/transformer-elm": "^2.0.0-beta.2",
+    "@parcel/transformer-sass": "^2.0.0-beta.2",
+    "@parcel/transformer-webmanifest": "^2.0.0-beta.2",
+    "elm-tooling": "^1.3.0",
+    "parcel": "^2.0.0-beta.2",
+    "postcss": "^8.3.5"
+  },
+  "dependencies": {}
 }
