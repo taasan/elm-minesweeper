@@ -72,6 +72,10 @@ window.addEventListener('blur', () => {
   app.ports.windowBlurred.send("GotBlurred");
 });
 
+window.addEventListener('load', () => {
+    document.body.classList.add("Theme__Solarized", "Theme__Solarized__Dark")
+});
+
 // app.ports.saveValue.subscribe(saveValue);
 // app.ports.loadValue.subscribe(loadValue);
 
