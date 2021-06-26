@@ -296,16 +296,15 @@ poke index board =
                                         newCells =
                                             Array.map
                                                 (\c ->
-                                                    case c of
-                                                        New idx _ ->
-                                                            if Set.member idx safeCells then
-                                                                (Exposed idx << Open << threats) idx
+                                                    let
+                                                        idx =
+                                                            getIndex c
+                                                    in
+                                                    if Set.member idx safeCells then
+                                                        (Exposed idx << Open << threats) idx
 
-                                                            else
-                                                                c
-
-                                                        _ ->
-                                                            c
+                                                    else
+                                                        c
                                                 )
                                                 board.cells
 
