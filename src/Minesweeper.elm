@@ -376,11 +376,8 @@ update msg (Board board) =
             update msg (mkBoard board)
 
         Initialized ->
-            let
-                ( x, _ ) =
-                    (update msg << Board) { board | state = Playing }
-            in
-            ( x, Just Start )
+            (update msg << Board) { board | state = Playing }
+                |> Tuple.mapSecond (always (Just Start))
 
         Playing ->
             Tuple.mapFirst Board (cmd cell board)
