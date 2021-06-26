@@ -16,7 +16,7 @@ function loadValue(type, key) {
     const json = localStorage.getItem(nskey);
     switch (type) {
       case "number": {
-        var v = Number(json);
+        const v = Number(json);
         return isNaN(v) ? undefined : v;
       }
       case "string":
