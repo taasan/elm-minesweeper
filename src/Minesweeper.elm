@@ -1024,7 +1024,7 @@ flagCell useUncertain cell =
             else
                 New i mined
 
-        _ ->
+        Exposed _ _ ->
             cell
 
 
