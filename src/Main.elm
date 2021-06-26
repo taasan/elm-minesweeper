@@ -170,7 +170,7 @@ update msg model =
                     ( { model | board = b }, Task.perform (GotTimerEvent event) Time.now )
 
                 _ ->
-                    ret model
+                    noop
     in
     case msg of
         TogglePause ->
@@ -181,11 +181,11 @@ update msg model =
                 doTogglePause ()
 
             else
-                ret model
+                noop
 
         NewGame ->
             if state == Paused || state == Playing then
-                ret model
+                noop
 
             else
                 ret
@@ -217,7 +217,7 @@ update msg model =
                         |> Tuple.first
             in
             if state == Paused || state == Playing then
-                ret model
+                noop
 
             else
                 update NewGame { model | board = mkBoard { rec | seed = seed } }
@@ -249,16 +249,16 @@ update msg model =
             ret { model | currentTime = time }
 
         LinkClicked _ ->
-            ret model
+            noop
 
         UrlChanged _ ->
-            ret model
+            noop
 
         VisibilityChanged Browser.Events.Hidden ->
             update GotBlurred model
 
         VisibilityChanged Browser.Events.Visible ->
-            ret model
+            noop
 
 
 statusBar : Model -> Html Msg
