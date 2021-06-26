@@ -114,18 +114,18 @@ boardState2String state =
 
 flag : Int -> Board -> ( Board, Maybe TimerEvent )
 flag index board =
-    case Array.get index board.cells of
-        Nothing ->
-            ( board, Nothing )
+    ( if board.state /= Playing then
+        board
 
-        Just cell ->
-            ( if board.state == Playing then
-                updateCell board (flagCell board.useUncertainFlag cell)
-
-              else
+      else
+        case Array.get index board.cells of
+            Nothing ->
                 board
-            , Nothing
-            )
+
+            Just cell ->
+                updateCell board (flagCell board.useUncertainFlag cell)
+    , Nothing
+    )
 
 
 updateCell : Board -> Cell -> Board
@@ -237,33 +237,33 @@ revealNeighbours cell board =
 
 poke : Int -> Board -> ( Board, Maybe TimerEvent )
 poke index board =
-    case Array.get index board.cells of
-        Nothing ->
-            ( board, Nothing )
+    if board.state /= Playing then
+        ( board, Nothing )
 
-        Just cell ->
-            let
-                mapThreats : Cell -> Int
-                mapThreats =
-                    .mined << countNeighbourStates board
+    else
+        case Array.get index board.cells of
+            Nothing ->
+                ( board, Nothing )
 
-                threatMap : () -> Array Int
-                threatMap _ =
-                    Array.map mapThreats board.cells
+            Just cell ->
+                let
+                    mapThreats : Cell -> Int
+                    mapThreats =
+                        .mined << countNeighbourStates board
 
-                neighbourMap : () -> Array ( Int, List Int )
-                neighbourMap _ =
-                    Array.map
-                        (\c ->
-                            ( mapThreats c, (List.map getIndex << getNeighbours board) c )
-                        )
-                        board.cells
+                    threatMap : () -> Array Int
+                    threatMap _ =
+                        Array.map mapThreats board.cells
 
-                newBoard =
-                    if board.state /= Playing then
-                        board
+                    neighbourMap : () -> Array ( Int, List Int )
+                    neighbourMap _ =
+                        Array.map
+                            (\c ->
+                                ( mapThreats c, (List.map getIndex << getNeighbours board) c )
+                            )
+                            board.cells
 
-                    else
+                    newBoard =
                         let
                             { mined, exploded, flagged, flaggedUncertain } =
                                 countNeighbourStates board cell
@@ -348,17 +348,17 @@ poke index board =
                             _ ->
                                 board
 
-                ( completed, gameOver ) =
-                    doneState newBoard.state
-            in
-            if gameOver || completed then
-                revealAll (threatMap ()) newBoard
+                    ( completed, gameOver ) =
+                        doneState newBoard.state
+                in
+                if gameOver || completed then
+                    revealAll (threatMap ()) newBoard
 
-            else if gameWon newBoard then
-                revealAll (threatMap ()) { newBoard | state = Done Completed }
+                else if gameWon newBoard then
+                    revealAll (threatMap ()) { newBoard | state = Done Completed }
 
-            else
-                ( newBoard, Nothing )
+                else
+                    ( newBoard, Nothing )
 
 
 update : CellMsg -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
