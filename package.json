@@ -7,7 +7,7 @@
   },
   "scripts": {
     "start": "parcel index.html",
-    "build": "parcel build index.html",
+    "build": "parcel build --public-url=./ index.html",
     "lint": "elm-format --validate src/",
     "test": "elm-test-rs",
     "postinstall": "elm-tooling install"
