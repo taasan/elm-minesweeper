@@ -1,6 +1,8 @@
-port module Main exposing (main)
+module Main exposing (main)
 
 import Browser
+import Browser.Events
+import Browser.Navigation as Nav
 import Html
     exposing
         ( Html
@@ -38,6 +40,7 @@ import Types
         , TimerEvent(..)
         , Topology(..)
         )
+import Url exposing (Url)
 
 
 
@@ -52,6 +55,8 @@ type alias Model =
     , elapsedTime : ( Int, Maybe Time.Posix )
     , error : Maybe String
     , board : Minesweeper
+    , url : Url
+    , key : Nav.Key
     }
 
 
@@ -61,19 +66,18 @@ type alias Model =
 
 main : Program E.Value Model Msg
 main =
-    Browser.element
+    Browser.application
         { init = init
         , view = view
         , update = update
         , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
         }
 
 
 
 -- PORTS
-
-
-port windowBlurred : (String -> msg) -> Sub msg
 
 
 solarized : String
@@ -86,8 +90,8 @@ defaultTheme =
     "Default"
 
 
-mkModel : Level -> Model
-mkModel level =
+mkModel : Url -> Nav.Key -> Level -> Model
+mkModel url key level =
     { theme = solarized
     , themes = [ solarized, defaultTheme ]
     , currentTime = Time.millisToPosix 0
@@ -100,6 +104,8 @@ mkModel level =
             , useUncertainFlag = True
             , level = level
             }
+    , url = url
+    , key = key
     }
 
 
@@ -111,8 +117,8 @@ getSeed p =
         |> GotSeed
 
 
-init : E.Value -> ( Model, Cmd Msg )
-init flags =
+init : E.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init flags url key =
     let
         saved =
             case D.decodeValue decoder flags of
@@ -123,7 +129,7 @@ init flags =
                     { theme = solarized, themes = [ solarized, defaultTheme ] }
 
         model_ =
-            mkModel (Minesweeper.beginner Hex Toroid)
+            mkModel url key (Minesweeper.intermediate Hex Toroid)
 
         model =
             { model_ | theme = saved.theme, themes = saved.themes }
@@ -242,13 +248,17 @@ update msg model =
         GotCurrentTime time ->
             ret { model | currentTime = time }
 
-        Recv s ->
-            case s of
-                "GotBlurred" ->
-                    update GotBlurred model
+        LinkClicked _ ->
+            ret model
 
-                _ ->
-                    ret model
+        UrlChanged _ ->
+            ret model
+
+        VisibilityChanged Browser.Events.Hidden ->
+            update GotBlurred model
+
+        VisibilityChanged Browser.Events.Visible ->
+            ret model
 
 
 statusBar : Model -> Html Msg
@@ -363,16 +373,20 @@ statusBar model =
         ]
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
-    div [ class "App" ]
-        [ div
-            [ class "SvgMinesweeper SvgMinesweeper__Container" ]
-            [ statusBar model
-            , Html.lazy Minesweeper.view model.board
+    { title = "Minesweeper"
+    , body =
+        [ div [ class "App" ]
+            [ div
+                [ class "SvgMinesweeper SvgMinesweeper__Container" ]
+                [ statusBar model
+                , Html.lazy Minesweeper.view model.board
+                ]
+            , SvgHelper.defs
             ]
-        , SvgHelper.defs
         ]
+    }
 
 
 subscriptions : Model -> Sub Msg
@@ -389,7 +403,7 @@ subscriptions model =
                 _ ->
                     Sub.none
     in
-    Sub.batch [ timer_, windowBlurred Recv ]
+    Sub.batch [ timer_, Browser.Events.onVisibilityChange VisibilityChanged ]
 
 
 

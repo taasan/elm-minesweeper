@@ -22,8 +22,11 @@ module Types exposing
     , isWon
     )
 
+import Browser
+import Browser.Events
 import Random exposing (Seed)
 import Time
+import Url
 
 
 
@@ -41,7 +44,9 @@ type Msg
     | GotCurrentTime Time.Posix
     | GotTimerEvent TimerEvent Time.Posix
     | Relax
-    | Recv String
+    | LinkClicked Browser.UrlRequest
+    | UrlChanged Url.Url
+    | VisibilityChanged Browser.Events.Visibility
 
 
 type CellMsg

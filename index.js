@@ -68,9 +68,6 @@ const app = Elm.Main.init({
 document.documentElement.oncontextmenu = (e) => {
   e.preventDefault();
 };
-window.addEventListener('blur', () => {
-  app.ports.windowBlurred.send("GotBlurred");
-});
 
 window.addEventListener('load', () => {
     document.body.classList.add("Theme__Solarized", "Theme__Solarized__Dark")
