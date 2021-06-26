@@ -112,16 +112,20 @@ boardState2String state =
             "DEMO"
 
 
-flag : Cell -> Board -> ( Board, Maybe TimerEvent )
-flag cell board =
-    ( case board.state of
-        Playing ->
-            updateCell board (flagCell board.useUncertainFlag cell)
+flag : Int -> Board -> ( Board, Maybe TimerEvent )
+flag index board =
+    case Array.get index board.cells of
+        Nothing ->
+            ( board, Nothing )
 
-        _ ->
-            board
-    , Nothing
-    )
+        Just cell ->
+            ( if board.state == Playing then
+                updateCell board (flagCell board.useUncertainFlag cell)
+
+              else
+                board
+            , Nothing
+            )
 
 
 updateCell : Board -> Cell -> Board
@@ -223,7 +227,7 @@ revealNeighbours cell board =
 
             folder : Cell -> Board -> Board
             folder c b =
-                Tuple.first (poke c b)
+                Tuple.first (poke (getIndex c) b)
         in
         getNeighbours board cell
             -- Only poke new cells
@@ -231,121 +235,130 @@ revealNeighbours cell board =
             |> List.foldl folder board
 
 
-poke : Cell -> Board -> ( Board, Maybe TimerEvent )
-poke cell board =
-    let
-        mapThreats : Cell -> Int
-        mapThreats =
-            .mined << countNeighbourStates board
+poke : Int -> Board -> ( Board, Maybe TimerEvent )
+poke index board =
+    case Array.get index board.cells of
+        Nothing ->
+            ( board, Nothing )
 
-        threatMap : () -> Array Int
-        threatMap _ =
-            Array.map mapThreats board.cells
+        Just cell ->
+            let
+                mapThreats : Cell -> Int
+                mapThreats =
+                    .mined << countNeighbourStates board
 
-        neighbourMap : () -> Array ( Int, List Int )
-        neighbourMap _ =
-            Array.map
-                (\c ->
-                    ( mapThreats c, (List.map getIndex << getNeighbours board) c )
-                )
-                board.cells
+                threatMap : () -> Array Int
+                threatMap _ =
+                    Array.map mapThreats board.cells
 
-        newBoard =
-            if board.state /= Playing then
-                board
+                neighbourMap : () -> Array ( Int, List Int )
+                neighbourMap _ =
+                    Array.map
+                        (\c ->
+                            ( mapThreats c, (List.map getIndex << getNeighbours board) c )
+                        )
+                        board.cells
+
+                newBoard =
+                    if board.state /= Playing then
+                        board
+
+                    else
+                        let
+                            { mined, exploded, flagged, flaggedUncertain } =
+                                countNeighbourStates board cell
+                        in
+                        case cell of
+                            Exposed _ (Open 0) ->
+                                board
+
+                            Exposed _ (Open _) ->
+                                if flagged + exploded - flaggedUncertain == mined then
+                                    revealNeighbours cell board
+
+                                else
+                                    board
+
+                            New i Nothing ->
+                                let
+                                    numThreats =
+                                        mapThreats cell
+                                in
+                                if numThreats /= 0 then
+                                    (updateCell board << revealSingle numThreats) cell
+
+                                else
+                                    let
+                                        safeCells : Set Int
+                                        safeCells =
+                                            collectSafe board.level (neighbourMap ()) i Set.empty
+
+                                        newCells =
+                                            Array.map
+                                                (\c ->
+                                                    case c of
+                                                        New idx _ ->
+                                                            if Set.member idx safeCells then
+                                                                (Exposed idx << Open << threats) idx
+
+                                                            else
+                                                                c
+
+                                                        _ ->
+                                                            c
+                                                )
+                                                board.cells
+
+                                        threatMap_ =
+                                            threatMap ()
+
+                                        threats n =
+                                            Maybe.withDefault -1 (Array.get n threatMap_)
+                                    in
+                                    { board | cells = newCells, stats = countStates newCells }
+
+                            New i m ->
+                                let
+                                    newCell =
+                                        Exposed i
+                                            (if m /= Nothing then
+                                                Exploded
+
+                                             else
+                                                Open mined
+                                            )
+
+                                    updated =
+                                        updateCell board newCell
+                                in
+                                if mined == 0 && m == Nothing then
+                                    revealNeighbours cell updated
+
+                                else
+                                    updated
+
+                            Flagged i Uncertain _ ->
+                                let
+                                    cmd : (a -> ( a, b )) -> a -> a
+                                    cmd f b =
+                                        Tuple.first (f b)
+                                in
+                                (cmd (poke i) << cmd (flag i)) board
+
+                            _ ->
+                                board
+
+                ( completed, gameOver ) =
+                    doneState newBoard.state
+            in
+            if gameOver || completed then
+                revealAll (threatMap ()) newBoard
+
+            else if gameWon newBoard then
+                revealAll (threatMap ()) { newBoard | state = Done Completed }
 
             else
-                let
-                    { mined, exploded, flagged, flaggedUncertain } =
-                        countNeighbourStates board cell
-                in
-                case cell of
-                    Exposed _ (Open 0) ->
-                        board
-
-                    Exposed _ (Open _) ->
-                        if flagged + exploded - flaggedUncertain >= mined then
-                            revealNeighbours cell board
-
-                        else
-                            board
-
-                    New i Nothing ->
-                        let
-                            numThreats =
-                                mapThreats cell
-                        in
-                        if numThreats /= 0 then
-                            (updateCell board << revealSingle numThreats) cell
-
-                        else
-                            let
-                                safeCells : Set Int
-                                safeCells =
-                                    collectSafe board.level (neighbourMap ()) i Set.empty
-
-                                newCells =
-                                    Array.map
-                                        (\c ->
-                                            case c of
-                                                New idx _ ->
-                                                    if Set.member idx safeCells then
-                                                        (Exposed idx << Open << threats) idx
-
-                                                    else
-                                                        c
-
-                                                _ ->
-                                                    c
-                                        )
-                                        board.cells
-
-                                threatMap_ =
-                                    threatMap ()
-
-                                threats n =
-                                    Maybe.withDefault -1 (Array.get n threatMap_)
-                            in
-                            { board | cells = newCells, stats = countStates newCells }
-
-                    New i m ->
-                        let
-                            newCell =
-                                Exposed i
-                                    (if m /= Nothing then
-                                        Exploded
-
-                                     else
-                                        Open mined
-                                    )
-
-                            updated =
-                                updateCell board newCell
-                        in
-                        if mined == 0 && m == Nothing then
-                            revealNeighbours cell updated
-
-                        else
-                            updated
-
-                    Flagged _ Uncertain _ ->
-                        poke (flagCell board.useUncertainFlag cell) board
-                            |> Tuple.first
-
-                    _ ->
-                        board
-
-        ( completed, gameOver ) =
-            doneState newBoard.state
-    in
-    if gameOver || completed then
-        revealAll (threatMap ()) newBoard
-
-    else if gameWon newBoard then
-        revealAll (threatMap ()) { newBoard | state = Done Completed }
-
-    else
-        ( newBoard, Nothing )
+                ( newBoard, Nothing )
 
 
 update : CellMsg -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
@@ -1122,10 +1135,10 @@ viewCell boardState gridType cell =
         handleClick e =
             case e.button of
                 Event.MainButton ->
-                    Cell (GotPoked cell)
+                    Cell (GotPoked (getIndex cell))
 
                 Event.SecondButton ->
-                    Cell (GotFlagged cell)
+                    Cell (GotFlagged (getIndex cell))
 
                 _ ->
                     Relax

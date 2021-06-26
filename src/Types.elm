@@ -45,8 +45,8 @@ type Msg
 
 
 type CellMsg
-    = GotFlagged Cell
-    | GotPoked Cell
+    = GotFlagged Int
+    | GotPoked Int
 
 
 
