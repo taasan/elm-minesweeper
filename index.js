@@ -1,5 +1,4 @@
 import { Elm } from "./src/Main.elm";
-import * as serviceWorker from './serviceWorker';
 
 const SETTINGS_STORAGE_KEY = "Minesweeper.settings";
 
@@ -75,8 +74,3 @@ window.addEventListener('load', () => {
 
 // app.ports.saveValue.subscribe(saveValue);
 // app.ports.loadValue.subscribe(loadValue);
-
-// If you want your app to work offline and load faster, you can change
-// unregister() to register() below. Note this comes with some pitfalls.
-// Learn more about service workers: https://bit.ly/CRA-PWA
-serviceWorker.register();
