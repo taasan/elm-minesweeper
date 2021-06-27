@@ -611,7 +611,6 @@ view (Board board) =
                             in
                             List.filter (\( r_, c_ ) -> between_ (rows + 1) r_ && between_ (cols + 1) c_)
                                 [ ( c.row, c.col - cols )
-                                , ( c.row, c.col - cols )
                                 , ( c.row, c.col + cols )
                                 , ( c.row - rows, c.col )
                                 , ( c.row + rows, c.col )
