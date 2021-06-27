@@ -12,14 +12,14 @@ import Html
         )
 import Html.Attributes exposing (attribute, class, title)
 import Html.Events exposing (onClick)
-import Html.Lazy as Html
+import Html.Lazy as Html exposing (lazy)
 import Json.Decode as D
 import Json.Decode.Pipeline as D
 import Json.Encode as E
 import Minesweeper
     exposing
         ( Minesweeper
-        , getState
+        , getBoard
         , mkBoard
         )
 import Random
@@ -109,14 +109,6 @@ mkModel url key level =
     }
 
 
-getSeed : Posix -> Msg
-getSeed p =
-    p
-        |> Time.posixToMillis
-        |> Random.initialSeed
-        |> GotSeed
-
-
 init : E.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     let
@@ -134,12 +126,7 @@ init flags url key =
         model =
             { model_ | theme = saved.theme, themes = saved.themes }
     in
-    ( model
-    , Cmd.batch
-        [ Task.perform getSeed Time.now
-        , Task.perform GotCurrentTime Time.now
-        ]
-    )
+    ( model, Task.perform GotCurrentTime Time.now )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -155,7 +142,7 @@ update msg model =
             model
 
         rec =
-            getState board
+            getBoard board
 
         { state } =
             rec
@@ -188,7 +175,7 @@ update msg model =
                 noop
 
             else
-                ret
+                update (Cell <| GotPoked -1)
                     { model
                         | board = mkBoard { rec | level = level }
                         , elapsedTime = ( 0, Nothing )
@@ -223,7 +210,7 @@ update msg model =
                 update (NewGame level) { model | board = mkBoard { rec | seed = seed } }
 
         GotSeed seed ->
-            ( { model | board = mkBoard { rec | seed = seed } }, Cmd.none )
+            update (Cell <| GotPoked -1) { model | board = mkBoard { rec | seed = seed } }
 
         Relax ->
             noop
@@ -268,7 +255,7 @@ statusBar model =
             model
 
         rec =
-            getState board
+            getBoard board
 
         { state, lives, level } =
             rec
@@ -375,14 +362,36 @@ statusBar model =
 
 view : Model -> Browser.Document Msg
 view model =
+    let
+        { board } =
+            model
+
+        rec =
+            getBoard board
+
+        content =
+            let
+                view_ =
+                    Minesweeper.view
+            in
+            Html.map
+                (\x ->
+                    case x of
+                        Just msg ->
+                            Cell msg
+
+                        Nothing ->
+                            Relax
+                )
+            <|
+                lazy view_ board
+    in
     { title = "Minesweeper"
     , body =
         [ div [ class "App" ]
             [ div
                 [ class "SvgMinesweeper SvgMinesweeper__Container" ]
-                [ statusBar model
-                , Html.lazy Minesweeper.view model.board
-                ]
+                [ lazy statusBar model, content ]
             , SvgHelper.defs
             ]
         ]
@@ -393,7 +402,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     let
         rec =
-            getState model.board
+            getBoard model.board
 
         timer_ =
             case rec.state of

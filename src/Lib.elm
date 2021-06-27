@@ -2,12 +2,17 @@ module Lib exposing
     ( between
     , bool2int
     , flip
+    , getSeed
     , isEven
     , isOdd
+    , message
     )
 
 import Bitwise exposing (and)
 import Random exposing (Generator)
+import Task
+import Time exposing (Posix)
+import Types exposing (Msg(..))
 
 
 isEven : Int -> Bool
@@ -44,3 +49,16 @@ bool2int b =
 flip : (c -> b -> a) -> b -> c -> a
 flip f x y =
     f y x
+
+
+getSeed : Posix -> Msg
+getSeed p =
+    p
+        |> Time.posixToMillis
+        |> Random.initialSeed
+        |> GotSeed
+
+
+message : Msg -> Cmd Msg
+message msg =
+    Task.perform (always msg) (Task.succeed ())

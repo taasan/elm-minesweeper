@@ -3,9 +3,10 @@ module Minesweeper exposing
     , Minesweeper
     , beginner
     , boardState2String
+    , demoBoard
     , emptyCellState
     , expert
-    , getState
+    , getBoard
     , intermediate
     , mapCellState
     , mkBoard
@@ -39,6 +40,7 @@ import Svg
         , use
         )
 import Svg.Attributes as A
+import Svg.Lazy exposing (lazy3)
 import SvgHelper
     exposing
         ( cellSize
@@ -57,7 +59,7 @@ import Types
         , Flag(..)
         , GridType(..)
         , Level
-        , Mine
+        , Mine(..)
         , Msg(..)
         , Revealed(..)
         , RevealedState(..)
@@ -76,15 +78,9 @@ type Minesweeper
 -- getBoardRecord : Minesweeper -> PartialBoard {}
 
 
-getState : Minesweeper -> PartialBoard { state : BoardState, stats : CellState Int }
-getState (Board b) =
-    { lives = b.lives
-    , state = b.state
-    , seed = b.seed
-    , stats = b.stats
-    , level = b.level
-    , useUncertainFlag = b.useUncertainFlag
-    }
+getBoard : Minesweeper -> Board
+getBoard (Board b) =
+    b
 
 
 boardState2String : BoardState -> String
@@ -373,7 +369,7 @@ update msg (Board board) =
     in
     case board.state of
         NotInitialized ->
-            update msg (mkBoard board)
+            ( Board <| initialize board, Nothing )
 
         Initialized ->
             (update msg << Board) { board | state = Playing }
@@ -437,17 +433,71 @@ emptyBoard =
     }
 
 
+demoBoard : GridType -> Minesweeper
+demoBoard type_ =
+    let
+        (Board board) =
+            mkBoard
+                { emptyBoard
+                    | level =
+                        { rows = 4
+                        , cols = 4
+                        , topology = Toroid
+                        , type_ = type_
+                        , mines = 0
+                        }
+                }
+
+        { rows, cols } =
+            board.level
+
+        cell i _ =
+            if i < 8 then
+                Exposed i (Open (i + 1))
+
+            else
+                case i of
+                    8 ->
+                        Exposed i (Open 0)
+
+                    9 ->
+                        New i Nothing
+
+                    10 ->
+                        Flagged i Normal (Just A)
+
+                    11 ->
+                        Flagged i Uncertain (Just A)
+
+                    12 ->
+                        Exposed i (Mined O)
+
+                    13 ->
+                        Flagged i Special (Just A)
+
+                    14 ->
+                        Flagged i Normal Nothing
+
+                    _ ->
+                        Exposed i Exploded
+    in
+    Board
+        { board
+            | state = Demo
+            , cells = Array.indexedMap cell board.cells
+        }
+
+
 mkBoard : PartialBoard a -> Minesweeper
 mkBoard x =
-    Board
-        (initialize
-            { emptyBoard
-                | level = x.level
-                , lives = x.lives
-                , useUncertainFlag = x.useUncertainFlag
-                , seed = x.seed
-            }
-        )
+    Board <|
+        { emptyBoard
+            | level = x.level
+            , lives = x.lives
+            , useUncertainFlag = x.useUncertainFlag
+            , seed = x.seed
+            , cells = Array.initialize (x.level.cols * x.level.rows) (\i -> New i Nothing)
+        }
 
 
 initialize : Board -> Board
@@ -494,8 +544,7 @@ createCells level seed =
                 |> Dict.fromList
 
         cells =
-            Array.repeat (rows * cols) 0
-                |> Array.indexedMap (\i _ -> New i (Dict.get i mineDict))
+            Array.initialize (rows * cols) (\i -> New i (Dict.get i mineDict))
     in
     cells
 
@@ -504,7 +553,7 @@ createCells level seed =
 -- VIEW
 
 
-view : Minesweeper -> Html Msg
+view : Minesweeper -> Html (Maybe CellMsg)
 view (Board board) =
     let
         { state, level } =
@@ -570,10 +619,14 @@ view (Board board) =
             level
 
         mapCell i cell =
-            mapSingleCell (calculateCoordinate level i) cell
+            let
+                { row, col } =
+                    calculateCoordinate level.cols i
+            in
+            lazy3 mapSingleCell row col cell
 
-        mapSingleCell : Coordinate -> Cell -> Html Msg
-        mapSingleCell { row, col } cell =
+        mapSingleCell : Int -> Int -> Cell -> Html (Maybe CellMsg)
+        mapSingleCell row col cell =
             let
                 offset =
                     if isOdd row then
@@ -601,10 +654,10 @@ view (Board board) =
             case topology of
                 Toroid ->
                     let
-                        f ( i, cell ) =
+                        f cell =
                             let
                                 c =
-                                    calculateCoordinate level i
+                                    calculateCoordinate level.cols <| getIndex cell
 
                                 between_ a =
                                     between ( -2, a )
@@ -621,16 +674,15 @@ view (Board board) =
                                 ]
                                 |> List.map
                                     (\( row_, col_ ) ->
-                                        mapSingleCell { row = row_, col = col_ } cell
+                                        lazy3 mapSingleCell row_ col_ cell
                                     )
                     in
                     Array.toList cells
-                        |> List.indexedMap Tuple.pair
-                        |> List.filter
-                            (\( i, _ ) ->
+                        |> List.filterMap
+                            (\cell ->
                                 let
                                     c =
-                                        calculateCoordinate level i
+                                        calculateCoordinate level.cols <| getIndex cell
 
                                     bl =
                                         between ( 0, 2 )
@@ -641,9 +693,13 @@ view (Board board) =
                                     pc =
                                         bl c.col || between ( cols - 1, cols - 3 ) c.col
                                 in
-                                pr || pc
+                                if pr || pc then
+                                    Just <| f cell
+
+                                else
+                                    Nothing
                             )
-                        |> List.concatMap f
+                        |> List.concat
 
                 _ ->
                     []
@@ -672,8 +728,12 @@ view (Board board) =
 
 getNeighbours : Board -> Cell -> List Cell
 getNeighbours x cell =
+    let
+        calculateIndex coordinate =
+            coordinate.col + x.level.cols * coordinate.row
+    in
     getNeighbourCoordinates (getIndex cell) x.level
-        |> List.map (\i -> Array.get (calculateIndex x.level i) x.cells)
+        |> List.map (\i -> Array.get (calculateIndex i) x.cells)
         |> List.filterMap identity
 
 
@@ -733,7 +793,7 @@ maxDim =
 minDim : Int
 minDim =
     -- must be even
-    6
+    4
 
 
 mkLevel : Level -> Level
@@ -773,7 +833,7 @@ getNeighbourCoordinates : Int -> Level -> List Coordinate
 getNeighbourCoordinates index grid =
     let
         origin =
-            calculateCoordinate grid index
+            calculateCoordinate grid.cols index
 
         { rows, cols, type_, topology } =
             grid
@@ -890,8 +950,8 @@ squareNeighbours =
     ]
 
 
-calculateCoordinate : { a | cols : Int } -> Int -> Coordinate
-calculateCoordinate { cols } i =
+calculateCoordinate : Int -> Int -> Coordinate
+calculateCoordinate cols i =
     let
         col =
             remainderBy cols i
@@ -900,11 +960,6 @@ calculateCoordinate { cols } i =
             (i - col) // cols
     in
     { row = row, col = col }
-
-
-calculateIndex : { a | cols : Int } -> Coordinate -> Int
-calculateIndex { cols } coordinate =
-    coordinate.col + cols * coordinate.row
 
 
 type alias Dim a =
@@ -1027,7 +1082,7 @@ flagCell useUncertain cell =
 -- CELL VIEW
 
 
-viewCell : BoardState -> GridType -> Cell -> Html Msg
+viewCell : BoardState -> GridType -> Cell -> Html (Maybe CellMsg)
 viewCell boardState gridType cell =
     let
         { mined, open, flaggedUncertain } =
@@ -1068,7 +1123,7 @@ viewCell boardState gridType cell =
                     ( 0
                     , [ background
                       , symbol <|
-                            if boardState == Done Completed then
+                            if boardState == Done Completed || boardState == Demo then
                                 Symbol.Disarmed Uncertain
 
                             else
@@ -1099,8 +1154,11 @@ viewCell boardState gridType cell =
                                 cover
 
                         ( s, el ) =
-                            if gameOver && m == Nothing then
+                            if (boardState == Demo || gameOver) && m == Nothing then
                                 ( Symbol.Incorrect, background )
+
+                            else if boardState == Demo && f == Special then
+                                ( Symbol.Disarmed Normal, background )
 
                             else if completed then
                                 ( Symbol.Disarmed Normal, slab )
@@ -1123,23 +1181,38 @@ viewCell boardState gridType cell =
             , viewBox
             , attribute "data-s" (String.fromInt state)
             ]
+                ++ handlers
+
+        handlers =
+            if attachHandlers then
+                [ onMouseDown, onContextMenu ]
+
+            else
+                []
 
         attachHandlers =
             not (completed || gameOver || boardState == Demo || boardState == Paused)
 
-        handleClick e =
-            case e.button of
-                Event.MainButton ->
-                    Cell (GotPoked (getIndex cell))
+        onMouseDown =
+            stop "mousedown"
+                (\e ->
+                    case e.button of
+                        Event.MainButton ->
+                            Just (GotPoked (getIndex cell))
 
-                Event.SecondButton ->
-                    Cell (GotFlagged (getIndex cell))
+                        _ ->
+                            Nothing
+                )
 
-                _ ->
-                    Relax
+        onContextMenu =
+            stop "contextmenu" <| always <| Just (GotFlagged (getIndex cell))
+
+        stop e =
+            { stopPropagation = True, preventDefault = True }
+                |> Event.onWithOptions e
 
         optionalAttributes =
-            [ if mined && (completed || gameOver) then
+            [ if mined && (completed || gameOver || boardState == Demo) then
                 Just (attribute "data-m" "t")
 
               else
@@ -1150,11 +1223,6 @@ viewCell boardState gridType cell =
 
                 _ ->
                     Nothing
-            , if attachHandlers then
-                Just (Event.onDown handleClick)
-
-              else
-                Nothing
             ]
 
         ( completed, gameOver ) =

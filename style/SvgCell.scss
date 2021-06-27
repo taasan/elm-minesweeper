@@ -185,7 +185,6 @@ $flagTypes: $FLAGGED, $UNCERTAIN;
 }
 */
 .SvgBoard[data-s="#{$PAUSED}"],
-.SvgBoard[data-s="#{$DEMO}"],
 .SvgBoard[data-s="#{$GAME_OVER}"],
 .SvgBoard[data-s="#{$COMPLETED}"] {
   .c {
