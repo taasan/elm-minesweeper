@@ -37,9 +37,9 @@ type Msg
     = Cell CellMsg
     | TogglePause
     | GotBlurred
-    | NewGame
+    | NewGame Level
     | SetTheme String
-    | RandomGame
+    | RandomGame Level
     | GotSeed Seed
     | GotCurrentTime Time.Posix
     | GotTimerEvent TimerEvent Time.Posix

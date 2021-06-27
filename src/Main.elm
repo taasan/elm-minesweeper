@@ -183,14 +183,14 @@ update msg model =
             else
                 noop
 
-        NewGame ->
+        NewGame level ->
             if state == Paused || state == Playing then
                 noop
 
             else
                 ret
                     { model
-                        | board = mkBoard rec
+                        | board = mkBoard { rec | level = level }
                         , elapsedTime = ( 0, Nothing )
                     }
 
@@ -209,7 +209,7 @@ update msg model =
             in
             ( { model | board = updatedBoard }, cmd )
 
-        RandomGame ->
+        RandomGame level ->
             let
                 seed =
                     rec.seed
@@ -220,7 +220,7 @@ update msg model =
                 noop
 
             else
-                update NewGame { model | board = mkBoard { rec | seed = seed } }
+                update (NewGame level) { model | board = mkBoard { rec | seed = seed } }
 
         GotSeed seed ->
             ( { model | board = mkBoard { rec | seed = seed } }, Cmd.none )
@@ -341,7 +341,7 @@ statusBar model =
             [ onClick
                 (case state of
                     Done _ ->
-                        RandomGame
+                        RandomGame level
 
                     _ ->
                         TogglePause
@@ -354,7 +354,7 @@ statusBar model =
                 [ text renderState ]
             ]
         , div
-            [ onClick RandomGame, class itemClass ]
+            [ onClick (RandomGame level), class itemClass ]
             [ span
                 [ class "FormatNumber" ]
                 [ text (Symbol.toString (Symbol.Count (level.mines - flagged - exploded))) ]
@@ -363,7 +363,7 @@ statusBar model =
                 [ text (Symbol.toString (Symbol.Flag Normal)) ]
             ]
         , div
-            [ onClick NewGame, class itemClass ]
+            [ onClick (NewGame level), class itemClass ]
             [ span
                 [ attribute "role" "img"
                 , attribute "aria-label" "menu"
