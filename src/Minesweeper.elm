@@ -1100,7 +1100,7 @@ viewCell boardState gridType cell =
 
                         ( s, el ) =
                             if gameOver && m == Nothing then
-                                ( Symbol.Flag Incorrect, slab )
+                                ( Symbol.Incorrect, background )
 
                             else if completed then
                                 ( Symbol.Disarmed Normal, slab )

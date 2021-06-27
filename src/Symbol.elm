@@ -37,6 +37,7 @@ randomMine =
 type Symbol
     = Mine Mine
     | Flag Flag
+    | Incorrect
     | ExplodedMine
     | Disarmed Flag
     | Count Int
@@ -102,7 +103,7 @@ toString s =
         Flag Uncertain ->
             "❓"
 
-        Flag Incorrect ->
+        Incorrect ->
             "💩"
 
         Disarmed Normal ->

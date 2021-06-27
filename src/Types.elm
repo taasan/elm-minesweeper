@@ -131,7 +131,6 @@ type Flag
     = Normal
     | Uncertain
     | Special
-    | Incorrect
 
 
 type Cell
