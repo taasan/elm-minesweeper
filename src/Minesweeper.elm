@@ -648,7 +648,7 @@ view (Board board) =
                     , A.height (String.fromFloat cellSize)
                     ]
             in
-            svg cellAttributes [ viewCell state type_ cell ]
+            svg cellAttributes [ lazy3 viewCell state type_ cell ]
 
         extraCells =
             case topology of
