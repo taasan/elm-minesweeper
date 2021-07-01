@@ -750,8 +750,9 @@ countStates cells =
         initial =
             mapCellState bool2int emptyCellState
 
+        folder : Cell -> CellState Int -> CellState Int
         folder =
-            mapStateAndLift bool2int (+)
+            liftState2 ((+) << bool2int) << cellState
     in
     cells
         |> Array.foldl folder initial
@@ -978,7 +979,7 @@ contains { rows, cols } { row, col } =
 -- CELL
 
 
-mapCellState : (Bool -> b) -> CellState Bool -> CellState b
+mapCellState : (a -> b) -> CellState a -> CellState b
 mapCellState f { flagged, flaggedUncertain, mined, exploded, new, revealed, open } =
     { flagged = f flagged
     , flaggedUncertain = f flaggedUncertain
@@ -990,22 +991,21 @@ mapCellState f { flagged, flaggedUncertain, mined, exploded, new, revealed, open
     }
 
 
-mapStateAndLift : (Bool -> b) -> (b -> b -> b) -> (Cell -> CellState b -> CellState b)
-mapStateAndLift f g x y =
-    liftState2 g ((flip mapCellState << cellState) x f) y
-
-
-liftState2 : (a -> b -> b) -> (CellState a -> CellState b -> CellState b)
-liftState2 f { flagged, flaggedUncertain, mined, exploded, new, revealed, open } x =
-    { x
-        | flagged = f flagged x.flagged
-        , flaggedUncertain = f flaggedUncertain x.flaggedUncertain
-        , mined = f mined x.mined
-        , exploded = f exploded x.exploded
-        , new = f new x.new
-        , revealed = f revealed x.revealed
-        , open = f open x.open
+applyState : CellState (b -> d) -> CellState b -> CellState d
+applyState f { flagged, flaggedUncertain, mined, exploded, new, revealed, open } =
+    { flagged = f.flagged flagged
+    , flaggedUncertain = f.flaggedUncertain flaggedUncertain
+    , mined = f.mined mined
+    , exploded = f.exploded exploded
+    , new = f.new new
+    , revealed = f.revealed revealed
+    , open = f.open open
     }
+
+
+liftState2 : (a -> b -> b) -> CellState a -> CellState b -> CellState b
+liftState2 f =
+    applyState << mapCellState f
 
 
 emptyCellState : CellState Bool
