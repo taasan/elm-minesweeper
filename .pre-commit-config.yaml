@@ -13,7 +13,12 @@ repos:
     hooks:
       - id: elm-format
         name: elm-format
-        entry: npx elm-format --validate
+        entry: npx --no-install elm-format --validate
+        language: node
+        files: \.elm$
+      - id: elm-review
+        name: elm-review
+        entry: pre-commit/elm-review
         language: node
         files: \.elm$
       - id: build
