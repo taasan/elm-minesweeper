@@ -69,11 +69,11 @@ view level =
             radio "TopologyRadio" "topology" checked_ (topologyChanged topology) (text content)
 
         typeChanged x =
-            GotLevel (Just { level | type_ = x })
+            GotLevel { level | type_ = x }
                 |> Just
 
         topologyChanged x =
-            GotLevel (Just { level | topology = x })
+            GotLevel { level | topology = x }
                 |> Just
 
         setRows x =
@@ -87,7 +87,7 @@ view level =
 
         numberChanged convert f val =
             convert val
-                |> Maybe.andThen (Just << GotLevel << Just << Minesweeper.mkLevel << f)
+                |> Maybe.andThen (Just << GotLevel << Minesweeper.mkLevel << f)
 
         mineRange_ =
             mineRange level
@@ -99,7 +99,7 @@ view level =
     in
     div
         [ class "LevelChooser" ]
-        [ form [ onSubmit <| Just <| Game <| RandomGame level, onReset (Just (GotLevel Nothing)) ]
+        [ form [ onSubmit <| Just <| Game <| RandomGame level, onReset <| Just PopPage ]
             [ div [ class "LevelChooser__controls" ]
                 [ fieldset [] (List.map typeRadio [ Hex, Square ])
                 , fieldset [] (List.map topologyRadio [ Plane, Toroid ])

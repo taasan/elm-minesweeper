@@ -63,7 +63,7 @@ type alias Model =
     , board : Minesweeper
     , url : Url
     , key : Nav.Key
-    , nextLevel : Maybe Level
+    , nextLevel : Level
     , seed : Seed
     , pages : NonEmpty Page
     }
@@ -140,7 +140,7 @@ mkModel url key level =
             }
     , url = url
     , key = key
-    , nextLevel = Nothing
+    , nextLevel = level
     , seed = Random.initialSeed 0
     , pages = NonEmpty Page.Game []
     }
@@ -195,7 +195,7 @@ handleGameMessage msg model =
                 { model
                     | board = mkBoard rec
                     , seed = Random.step Random.independentSeed model.seed |> Tuple.first
-                    , nextLevel = Nothing
+                    , nextLevel = level
                 }
 
 
@@ -321,16 +321,7 @@ update_ msg model =
                 m =
                     { model | nextLevel = level, pages = model.pages }
             in
-            case level of
-                Just x ->
-                    ( m, saveLevel x )
-
-                Nothing ->
-                    if model.pages.head == Page.LevelChooser then
-                        ret { m | pages = pop_ m.pages }
-
-                    else
-                        ret m
+            ( m, saveLevel level )
 
         GotPage op page ->
             if model.pages.head == page then
@@ -481,22 +472,13 @@ statusBar model =
 view : Model -> Browser.Document Msg
 view model =
     let
-        rec =
-            getBoard model.board
-
         ( header_, content ) =
             case model.pages.head of
                 Page.LevelChooser ->
-                    let
-                        nextGame : Level
-                        nextGame =
-                            model.nextLevel
-                                |> Maybe.withDefault rec.level
-                    in
                     ( Nothing
                     , div
                         []
-                        [ lazy LevelChooser.view nextGame ]
+                        [ lazy LevelChooser.view model.nextLevel ]
                         |> Html.map (Maybe.withDefault Relax)
                     )
 

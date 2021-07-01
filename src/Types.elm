@@ -38,7 +38,7 @@ type Msg
     | GotSeed Seed
     | GotCurrentTime Time.Posix
     | GotTimerEvent TimerEvent Time.Posix
-    | GotLevel (Maybe Level)
+    | GotLevel Level
     | Relax
     | VisibilityChanged Browser.Events.Visibility
     | GotPage StackOperation Page
