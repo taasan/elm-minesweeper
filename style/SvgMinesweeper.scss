@@ -6,6 +6,8 @@
   bottom: 0;
   user-select: none;
   overflow: auto;
+  // FIXME Workaround for temporary scroll bars on level chooser
+  overflow-x: hidden;
   text-align: center;
 }
 
