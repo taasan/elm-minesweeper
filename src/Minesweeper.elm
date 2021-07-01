@@ -1,18 +1,20 @@
 module Minesweeper exposing
     ( Board
+    , Handler
+    , Handlers
     , Minesweeper
+    , PartialBoard
     , beginner
-    , boardState2String
+    , defaultHandlers
     , demoBoard
-    , emptyCellState
-    , expert
     , getBoard
-    , intermediate
-    , mapCellState
+    , mineRange
     , mkBoard
+    , mkLevel
     , togglePause
     , update
     , view
+    , viewCell
     )
 
 import Array exposing (Array)
@@ -24,7 +26,6 @@ import Lib
     exposing
         ( between
         , bool2int
-        , flip
         , isEven
         , isOdd
         )
@@ -40,7 +41,7 @@ import Svg
         , use
         )
 import Svg.Attributes as A
-import Svg.Lazy exposing (lazy3)
+import Svg.Lazy exposing (lazy3, lazy4)
 import SvgHelper
     exposing
         ( cellSize
@@ -62,7 +63,6 @@ import Types
         , Mine(..)
         , Msg(..)
         , Revealed(..)
-        , RevealedState(..)
         , TimerEvent(..)
         , Topology(..)
         , doneState
@@ -168,6 +168,11 @@ revealSingle threats cell =
             cell
 
 
+mapThreats : Board -> Cell -> Int
+mapThreats board =
+    .mined << countNeighbourStates board
+
+
 revealAll : Array Int -> Board -> ( Board, Maybe TimerEvent )
 revealAll threatMap board =
     let
@@ -243,19 +248,15 @@ poke index board =
 
             Just cell ->
                 let
-                    mapThreats : Cell -> Int
-                    mapThreats =
-                        .mined << countNeighbourStates board
-
                     threatMap : () -> Array Int
                     threatMap _ =
-                        Array.map mapThreats board.cells
+                        Array.map (mapThreats board) board.cells
 
                     neighbourMap : () -> Array ( Int, List Int )
                     neighbourMap _ =
                         Array.map
                             (\c ->
-                                ( mapThreats c, (List.map getIndex << getNeighbours board) c )
+                                ( mapThreats board c, (List.map getIndex << getNeighbours board) c )
                             )
                             board.cells
 
@@ -278,7 +279,7 @@ poke index board =
                             New i Nothing ->
                                 let
                                     numThreats =
-                                        mapThreats cell
+                                        mapThreats board cell
                                 in
                                 if numThreats /= 0 then
                                     (updateCell board << revealSingle numThreats) cell
@@ -356,8 +357,31 @@ poke index board =
                     ( newBoard, Nothing )
 
 
-update : CellMsg -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
-update msg (Board board) =
+defaultPoker : Handler (Maybe CellMsg)
+defaultPoker cell e =
+    case e.button of
+        Event.MainButton ->
+            Just (GotPoked (getIndex cell))
+
+        _ ->
+            Nothing
+
+
+defaultFlagger : Handler (Maybe CellMsg)
+defaultFlagger cell _ =
+    Just (GotFlagged (getIndex cell))
+
+
+defaultHandlers : Maybe (Handlers (Maybe CellMsg))
+defaultHandlers =
+    Just
+        { poker = defaultPoker
+        , flagger = defaultFlagger
+        }
+
+
+update : Seed -> CellMsg -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
+update seed msg ((Board board) as game) =
     let
         ( cmd, cell ) =
             case msg of
@@ -369,10 +393,10 @@ update msg (Board board) =
     in
     case board.state of
         NotInitialized ->
-            ( Board <| initialize board, Nothing )
+            update seed msg (initialize seed game)
 
         Initialized ->
-            (update msg << Board) { board | state = Playing }
+            (update seed msg << Board) { board | state = Playing }
                 |> Tuple.mapSecond (always (Just Start))
 
         Playing ->
@@ -407,8 +431,7 @@ togglePause (Board b) =
 
 type alias PartialBoard a =
     { a
-        | seed : Seed
-        , useUncertainFlag : Bool
+        | useUncertainFlag : Bool
         , lives : Int
         , level : Level
     }
@@ -424,7 +447,6 @@ type alias Board =
 
 emptyBoard =
     { cells = Array.empty
-    , seed = Random.initialSeed 37
     , state = NotInitialized
     , lives = 3
     , useUncertainFlag = True
@@ -433,8 +455,8 @@ emptyBoard =
     }
 
 
-demoBoard : GridType -> Minesweeper
-demoBoard type_ =
+demoBoard : Topology -> GridType -> Minesweeper
+demoBoard topology type_ =
     let
         (Board board) =
             mkBoard
@@ -442,14 +464,12 @@ demoBoard type_ =
                     | level =
                         { rows = 4
                         , cols = 4
-                        , topology = Toroid
+                        , topology = topology
                         , type_ = type_
                         , mines = 0
+                        , useUncertainFlag = True
                         }
                 }
-
-        { rows, cols } =
-            board.level
 
         cell i _ =
             if i < 8 then
@@ -490,43 +510,61 @@ demoBoard type_ =
 
 mkBoard : PartialBoard a -> Minesweeper
 mkBoard x =
+    let
+        level =
+            mkLevel x.level
+    in
     Board <|
         { emptyBoard
-            | level = x.level
+            | level = level
             , lives = x.lives
             , useUncertainFlag = x.useUncertainFlag
-            , seed = x.seed
-            , cells = Array.initialize (x.level.cols * x.level.rows) (\i -> New i Nothing)
+            , cells = Array.initialize (level.cols * level.rows) (\i -> New i Nothing)
         }
 
 
-initialize : Board -> Board
-initialize board =
-    let
-        { seed, lives } =
-            board
+initialize : Seed -> Minesweeper -> Minesweeper
+initialize seed (Board board) =
+    Board
+        { board
+            | state = Initialized
+            , lives = clamp 1 3 board.lives
+            , cells = createCells board.level seed
+            , level = board.level
+        }
 
-        level =
-            mkLevel board.level
+
+clampMines : Float -> Float
+clampMines =
+    clamp 0.1 0.4
+
+
+mineRange : Level -> { min : Int, max : Int }
+mineRange level =
+    let
+        min_ =
+            numMines { level | mines = clampMines 0 }
+
+        max_ =
+            numMines { level | mines = clampMines 1 }
     in
-    { board
-        | state = Initialized
-        , lives = clamp 1 3 lives
-        , cells = createCells level seed
-        , seed = seed
-        , level = level
-    }
+    { min = min_, max = max_ }
+
+
+numMines : Level -> Int
+numMines level =
+    round <| toFloat level.rows * toFloat level.cols * clampMines level.mines
 
 
 createCells : Level -> Seed -> Array Cell
 createCells level seed =
     let
-        { rows, cols, mines } =
+        { rows, cols } =
             level
 
         mineSet =
             seed
-                |> Random.step (Random.set mines (Random.int 0 (rows * cols - 1)))
+                |> Random.step (Random.set (numMines level) (Random.int 0 (rows * cols - 1)))
                 |> Tuple.first
 
         randomMine_ : a -> Int -> ( Int, Mine )
@@ -553,8 +591,18 @@ createCells level seed =
 -- VIEW
 
 
-view : Minesweeper -> Html (Maybe CellMsg)
-view (Board board) =
+type alias Handler msg =
+    Cell -> Event.Event -> msg
+
+
+type alias Handlers msg =
+    { poker : Handler msg
+    , flagger : Handler msg
+    }
+
+
+view : Maybe (Handlers msg) -> Minesweeper -> Html msg
+view handlers (Board board) =
     let
         { state, level } =
             board
@@ -625,7 +673,7 @@ view (Board board) =
             in
             lazy3 mapSingleCell row col cell
 
-        mapSingleCell : Int -> Int -> Cell -> Html (Maybe CellMsg)
+        mapSingleCell : Int -> Int -> Cell -> Html msg
         mapSingleCell row col cell =
             let
                 offset =
@@ -648,7 +696,7 @@ view (Board board) =
                     , A.height (String.fromFloat cellSize)
                     ]
             in
-            svg cellAttributes [ lazy3 viewCell state type_ cell ]
+            svg cellAttributes [ lazy4 viewCell handlers state type_ cell ]
 
         extraCells =
             case topology of
@@ -662,7 +710,14 @@ view (Board board) =
                                 between_ a =
                                     between ( -2, a )
                             in
-                            List.filter (\( r_, c_ ) -> between_ (rows + 1) r_ && between_ (cols + 1) c_)
+                            List.filterMap
+                                (\( r_, c_ ) ->
+                                    if between_ (rows + 1) r_ && between_ (cols + 1) c_ then
+                                        Just (lazy3 mapSingleCell r_ c_ cell)
+
+                                    else
+                                        Nothing
+                                )
                                 [ ( c.row, c.col - cols )
                                 , ( c.row, c.col + cols )
                                 , ( c.row - rows, c.col )
@@ -672,10 +727,6 @@ view (Board board) =
                                 , ( c.row + rows, c.col - cols )
                                 , ( c.row - rows, c.col + cols )
                                 ]
-                                |> List.map
-                                    (\( row_, col_ ) ->
-                                        lazy3 mapSingleCell row_ col_ cell
-                                    )
                     in
                     Array.toList cells
                         |> List.filterMap
@@ -800,12 +851,6 @@ minDim =
 mkLevel : Level -> Level
 mkLevel x =
     let
-        minMines =
-            ceiling (toFloat (rows * cols) * 0.1)
-
-        maxMines =
-            floor (toFloat (rows * cols) * 0.5)
-
         cols =
             clamp minDim maxDim x.cols
 
@@ -819,14 +864,11 @@ mkLevel x =
                         x.rows
             in
             clamp minDim maxDim r
-
-        mines =
-            clamp minMines maxMines x.mines
     in
     { x
         | cols = cols
         , rows = rows
-        , mines = mines
+        , mines = clampMines x.mines
     }
 
 
@@ -884,31 +926,32 @@ beginner g t =
     , cols = 10
     , type_ = g
     , topology = t
-    , mines = 10
-    }
-
-
-intermediate : GridType -> Topology -> Level
-intermediate g t =
-    { rows = 16
-    , cols = 16
-    , type_ = g
-    , topology = t
-    , mines = 40
-    }
-
-
-expert : GridType -> Topology -> Level
-expert g t =
-    { rows = 16
-    , cols = 30
-    , type_ = g
-    , topology = t
-    , mines = 99
+    , mines = 0.1
+    , useUncertainFlag = True
     }
 
 
 
+--intermediate : GridType -> Topology -> Level
+--intermediate g t =
+--    { rows = 16
+--    , cols = 16
+--    , type_ = g
+--    , topology = t
+--    , mines = 0.15625
+--    , useUncertainFlag = True
+--    }
+--
+--
+--expert : GridType -> Topology -> Level
+--expert g t =
+--    { rows = 16
+--    , cols = 30
+--    , type_ = g
+--    , topology = t
+--    , mines = 0.20625
+--    , useUncertainFlag = True
+--    }
 -- LEVEL HELPERS
 
 
@@ -1082,8 +1125,8 @@ flagCell useUncertain cell =
 -- CELL VIEW
 
 
-viewCell : BoardState -> GridType -> Cell -> Html (Maybe CellMsg)
-viewCell boardState gridType cell =
+viewCell : Maybe (Handlers msg) -> BoardState -> GridType -> Cell -> Html msg
+viewCell handlers boardState gridType cell =
     let
         { mined, open, flaggedUncertain } =
             cellState cell
@@ -1181,31 +1224,18 @@ viewCell boardState gridType cell =
             , viewBox
             , attribute "data-s" (String.fromInt state)
             ]
-                ++ handlers
+                ++ handlerAttrs
 
-        handlers =
-            if attachHandlers then
-                [ onMouseDown, onContextMenu ]
+        handlerAttrs =
+            case ( attachHandlers, handlers ) of
+                ( True, Just { poker, flagger } ) ->
+                    [ stop "mousedown" (poker cell), stop "contextmenu" (flagger cell) ]
 
-            else
-                []
+                _ ->
+                    []
 
         attachHandlers =
             not (completed || gameOver || boardState == Demo || boardState == Paused)
-
-        onMouseDown =
-            stop "mousedown"
-                (\e ->
-                    case e.button of
-                        Event.MainButton ->
-                            Just (GotPoked (getIndex cell))
-
-                        _ ->
-                            Nothing
-                )
-
-        onContextMenu =
-            stop "contextmenu" <| always <| Just (GotFlagged (getIndex cell))
 
         stop e =
             { stopPropagation = True, preventDefault = True }

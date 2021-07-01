@@ -1,62 +1,46 @@
 import { Elm } from "./src/Main.elm";
 
-const SETTINGS_STORAGE_KEY = "Minesweeper.settings";
+const SETTINGS_STORAGE_KEY = "Minesweeper";
 
-function validateType(type) {
-  if (!["string", "number", "boolean", "object"].includes(type)) {
-    throw new TypeError("Unable to save value of type '" + type);
+function loadValue(key) {
+  if (key == null) {
+    console.warn("Trying to load value with empty key");
+    return;
   }
-}
-
-function loadValue(type, key) {
-  const nskey = SETTINGS_STORAGE_KEY + "." + key;
+  const nskey = `${SETTINGS_STORAGE_KEY}.${key}`;
+  console.debug(`Trying to load value with key ${nskey}`);
   try {
-    validateType(type);
     const json = localStorage.getItem(nskey);
-    switch (type) {
-      case "number": {
-        const v = Number(json);
-        return isNaN(v) ? undefined : v;
-      }
-      case "string":
-        return json;
-      case "boolean":
-      case "object": {
-        const parsed = json != null ? JSON.parse(json) : undefined;
-        if (type === "boolean") {
-          return parsed === true;
-        }
-        return typeof parsed === "object" ? parsed : undefined;
-      }
-      default:
-        console.warn("Unhandled type " + type);
-    }
+    return json ? JSON.parse(json) : null;
   } catch (err) {
     try {
       localStorage.removeItem(nskey);
     } catch (_err) {}
-    console.warn({ err: err, type: type, key: key });
+    console.warn({ err: err, key: key });
   }
   return;
 }
 
-function saveValue(type, key, value) {
+function saveValue({ key, value }) {
+  if (key == null) {
+    console.warn("Trying to save value with empty key");
+    return;
+  }
+  const nskey = `${SETTINGS_STORAGE_KEY}.${key}`;
+  console.debug(`Trying to load value with key ${nskey}`);
   try {
-    validateType(type);
-    localStorage.setItem(
-      SETTINGS_STORAGE_KEY + "." + key,
-      type === "object" ? JSON.stringify(value) : value
-    );
+    localStorage.setItem(nskey, JSON.stringify(value));
   } catch (err) {
     console.warn(err);
   }
 }
 
-const theme = loadValue("string", "theme") || "Solarized";
+const theme = loadValue("theme");
 
 const flags = {
   theme: theme,
-  themes: [theme],
+  themes: theme ? [theme] : null,
+  level: loadValue("level"),
 };
 
 const app = Elm.Main.init({
@@ -68,9 +52,12 @@ document.documentElement.oncontextmenu = (e) => {
   e.preventDefault();
 };
 
-window.addEventListener('load', () => {
-    document.body.classList.add("Theme__Solarized", "Theme__Solarized__Dark")
+window.addEventListener("load", () => {
+  document.body.classList.add("Theme__Solarized", "Theme__Solarized__Dark");
 });
 
-// app.ports.saveValue.subscribe(saveValue);
-// app.ports.loadValue.subscribe(loadValue);
+window.addEventListener("blur", (e) => {
+  app.ports.windowBlurred.send("GotBlurred");
+});
+
+app.ports.saveValue.subscribe(saveValue);

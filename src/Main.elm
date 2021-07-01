@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (Model, NonEmpty, main)
 
 import Browser
 import Browser.Events
@@ -7,22 +7,28 @@ import Html
     exposing
         ( Html
         , div
+        , header
+        , main_
         , span
         , text
         )
 import Html.Attributes exposing (attribute, class, title)
 import Html.Events exposing (onClick)
-import Html.Lazy as Html exposing (lazy)
+import Html.Lazy exposing (lazy, lazy2)
 import Json.Decode as D
 import Json.Decode.Pipeline as D
 import Json.Encode as E
+import LevelChooser
+import Lib exposing (getSeed)
 import Minesweeper
     exposing
         ( Minesweeper
+        , defaultHandlers
         , getBoard
         , mkBoard
         )
-import Random
+import Page exposing (Page)
+import Random exposing (Seed)
 import SvgHelper
 import Symbol
 import Task
@@ -30,13 +36,16 @@ import Time exposing (Posix)
 import Types
     exposing
         ( BoardState(..)
-        , Cell(..)
+        , Cell
         , CellMsg(..)
         , DoneState(..)
         , Flag(..)
+        , GameMsg(..)
         , GridType(..)
+        , Key(..)
         , Level
         , Msg(..)
+        , StackOperation(..)
         , TimerEvent(..)
         , Topology(..)
         )
@@ -45,19 +54,47 @@ import Url exposing (Url)
 
 
 -- MODEL
--- MODEL
 
 
 type alias Model =
-    { theme : String
-    , themes : List String
-    , currentTime : Time.Posix
+    { currentTime : Time.Posix
     , elapsedTime : ( Int, Maybe Time.Posix )
     , error : Maybe String
     , board : Minesweeper
     , url : Url
     , key : Nav.Key
+    , nextLevel : Maybe Level
+    , seed : Seed
+    , pages : NonEmpty Page
     }
+
+
+type alias NonEmpty a =
+    { head : a, tail : List a }
+
+
+push : a -> NonEmpty a -> NonEmpty a
+push x stack =
+    if x == stack.head then
+        stack
+
+    else
+        { head = x, tail = stack.head :: stack.tail }
+
+
+pop : NonEmpty a -> ( a, NonEmpty a )
+pop stack =
+    case stack.tail of
+        [] ->
+            ( stack.head, stack )
+
+        x :: xs ->
+            ( stack.head, { head = x, tail = xs } )
+
+
+pop_ : NonEmpty a -> NonEmpty a
+pop_ =
+    Tuple.second << pop
 
 
 
@@ -71,8 +108,8 @@ main =
         , view = view
         , update = update
         , subscriptions = subscriptions
-        , onUrlChange = UrlChanged
-        , onUrlRequest = LinkClicked
+        , onUrlChange = always Relax
+        , onUrlRequest = always Relax
         }
 
 
@@ -92,20 +129,20 @@ defaultTheme =
 
 mkModel : Url -> Nav.Key -> Level -> Model
 mkModel url key level =
-    { theme = solarized
-    , themes = [ solarized, defaultTheme ]
-    , currentTime = Time.millisToPosix 0
+    { currentTime = Time.millisToPosix 0
     , elapsedTime = ( 0, Nothing )
     , error = Nothing
     , board =
         mkBoard
-            { seed = Random.initialSeed 37
-            , lives = 3
+            { lives = 3
             , useUncertainFlag = True
             , level = level
             }
     , url = url
     , key = key
+    , nextLevel = Nothing
+    , seed = Random.initialSeed 0
+    , pages = NonEmpty Page.Game []
     }
 
 
@@ -118,19 +155,108 @@ init flags url key =
                     m
 
                 Err _ ->
-                    { theme = solarized, themes = [ solarized, defaultTheme ] }
-
-        model_ =
-            mkModel url key (Minesweeper.intermediate Hex Toroid)
+                    { theme = solarized
+                    , themes = [ solarized, defaultTheme ]
+                    , level = Minesweeper.beginner Square Plane
+                    }
 
         model =
-            { model_ | theme = saved.theme, themes = saved.themes }
+            mkModel url key saved.level
     in
-    ( model, Task.perform GotCurrentTime Time.now )
+    ( model
+    , Cmd.batch
+        [ Task.perform GotCurrentTime Time.now
+        , Task.perform GotSeed getSeed
+        ]
+    )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    (postUpdate model << update_ msg) model
+
+
+handleGameMessage : GameMsg -> Model -> ( Model, Cmd Msg )
+handleGameMessage msg model =
+    let
+        rec =
+            getBoard model.board
+    in
+    case msg of
+        NewGame level ->
+            update (GotPage Replace Page.Game)
+                { model
+                    | board = mkBoard { rec | level = level }
+                    , elapsedTime = ( 0, Nothing )
+                }
+
+        RandomGame level ->
+            handleGameMessage (NewGame level)
+                { model
+                    | board = mkBoard rec
+                    , seed = Random.step Random.independentSeed model.seed |> Tuple.first
+                    , nextLevel = Nothing
+                }
+
+
+handleCellMessage : CellMsg -> Model -> ( Model, Cmd Msg )
+handleCellMessage msg model =
+    let
+        ( updatedBoard, event ) =
+            Minesweeper.update model.seed msg model.board
+
+        cmd =
+            case event of
+                Just x ->
+                    Task.perform (GotTimerEvent x) Time.now
+
+                _ ->
+                    Cmd.none
+    in
+    ( { model | board = updatedBoard }, cmd )
+
+
+doTogglePause : Model -> ( Model, Cmd Msg )
+doTogglePause model =
+    let
+        ( b, s ) =
+            Minesweeper.togglePause model.board
+    in
+    case s of
+        Just event ->
+            ( { model | board = b }, Task.perform (GotTimerEvent event) Time.now )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+postUpdate : Model -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+postUpdate old ( new, cmd ) =
+    if old.pages == new.pages || old == new then
+        ( new, cmd )
+
+    else
+        let
+            { pages } =
+                new
+
+            { state } =
+                getBoard new.board
+
+            shouldTogglePause =
+                (pages.head == Page.Game && state == Paused)
+                    || (pages.head /= Page.Game && state == Playing)
+        in
+        if shouldTogglePause then
+            doTogglePause new
+                |> Tuple.mapSecond (\x -> Cmd.batch [ x, cmd ])
+
+        else
+            ( new, cmd )
+
+
+update_ : Msg -> Model -> ( Model, Cmd Msg )
+update_ msg model =
     let
         noop =
             ret model
@@ -146,83 +272,32 @@ update msg model =
 
         { state } =
             rec
-
-        doTogglePause _ =
-            let
-                ( b, s ) =
-                    Minesweeper.togglePause board
-            in
-            case s of
-                Just event ->
-                    ( { model | board = b }, Task.perform (GotTimerEvent event) Time.now )
-
-                _ ->
-                    noop
     in
     case msg of
         TogglePause ->
-            doTogglePause ()
+            doTogglePause model
 
         GotBlurred ->
             if state == Playing then
-                doTogglePause ()
+                doTogglePause model
 
             else
                 noop
 
-        NewGame level ->
-            if state == Paused || state == Playing then
-                noop
-
-            else
-                update (Cell <| GotPoked -1)
-                    { model
-                        | board = mkBoard { rec | level = level }
-                        , elapsedTime = ( 0, Nothing )
-                    }
+        Game msg_ ->
+            handleGameMessage msg_ model
 
         Cell msg_ ->
-            let
-                ( updatedBoard, event ) =
-                    Minesweeper.update msg_ model.board
-
-                cmd =
-                    case event of
-                        Just x ->
-                            Task.perform (GotTimerEvent x) Time.now
-
-                        _ ->
-                            Cmd.none
-            in
-            ( { model | board = updatedBoard }, cmd )
-
-        RandomGame level ->
-            let
-                seed =
-                    rec.seed
-                        |> Random.step Random.independentSeed
-                        |> Tuple.first
-            in
-            if state == Paused || state == Playing then
-                noop
-
-            else
-                update (NewGame level) { model | board = mkBoard { rec | seed = seed } }
+            handleCellMessage msg_ model
 
         GotSeed seed ->
-            update (Cell <| GotPoked -1) { model | board = mkBoard { rec | seed = seed } }
+            ret { model | seed = seed }
 
         Relax ->
             noop
 
-        SetTheme theme ->
-            ret { model | theme = theme }
-
         GotTimerEvent event time ->
             let
-                newTime =
-                    elapsed time model.elapsedTime
-
                 x =
                     if event == Start then
                         Just time
@@ -230,21 +305,64 @@ update msg model =
                     else
                         Nothing
             in
-            ret { model | elapsedTime = ( newTime, x ), currentTime = time }
+            ret { model | elapsedTime = ( elapsed time model.elapsedTime, x ) }
 
         GotCurrentTime time ->
             ret { model | currentTime = time }
-
-        LinkClicked _ ->
-            noop
-
-        UrlChanged _ ->
-            noop
 
         VisibilityChanged Browser.Events.Hidden ->
             update GotBlurred model
 
         VisibilityChanged Browser.Events.Visible ->
+            noop
+
+        GotLevel level ->
+            let
+                m =
+                    { model | nextLevel = level, pages = model.pages }
+            in
+            case level of
+                Just x ->
+                    ( m, saveLevel x )
+
+                Nothing ->
+                    if model.pages.head == Page.LevelChooser then
+                        ret { m | pages = pop_ m.pages }
+
+                    else
+                        ret m
+
+        GotPage op page ->
+            if model.pages.head == page then
+                ret model
+
+            else
+                let
+                    pages =
+                        case op of
+                            Replace ->
+                                NonEmpty page model.pages.tail
+
+                            Push ->
+                                push page model.pages
+                in
+                ret { model | pages = pages }
+
+        PopPage ->
+            let
+                pages =
+                    pop_ model.pages
+            in
+            if pages == model.pages then
+                noop
+
+            else
+                ret { model | pages = pop_ model.pages }
+
+        KeyPressed Escape ->
+            update PopPage model
+
+        KeyPressed _ ->
             noop
 
 
@@ -328,7 +446,7 @@ statusBar model =
             [ onClick
                 (case state of
                     Done _ ->
-                        RandomGame level
+                        Game (RandomGame level)
 
                     _ ->
                         TogglePause
@@ -341,16 +459,16 @@ statusBar model =
                 [ text renderState ]
             ]
         , div
-            [ onClick (RandomGame level), class itemClass ]
+            [ onClick <| Game <| RandomGame level, class itemClass ]
             [ span
                 [ class "FormatNumber" ]
-                [ text (Symbol.toString (Symbol.Count (level.mines - flagged - exploded))) ]
+                [ text (Symbol.toString (Symbol.Count (rec.stats.mined - flagged - exploded))) ]
             , span
                 [ attribute "role" "img" ]
                 [ text (Symbol.toString (Symbol.Flag Normal)) ]
             ]
         , div
-            [ onClick (NewGame level), class itemClass ]
+            [ onClick (GotPage Push Page.LevelChooser), class itemClass ]
             [ span
                 [ attribute "role" "img"
                 , attribute "aria-label" "menu"
@@ -363,37 +481,40 @@ statusBar model =
 view : Model -> Browser.Document Msg
 view model =
     let
-        { board } =
-            model
-
         rec =
-            getBoard board
+            getBoard model.board
 
-        content =
-            let
-                view_ =
-                    Minesweeper.view
-            in
-            Html.map
-                (\x ->
-                    case x of
-                        Just msg ->
-                            Cell msg
+        ( header_, content ) =
+            case model.pages.head of
+                Page.LevelChooser ->
+                    let
+                        nextGame : Level
+                        nextGame =
+                            model.nextLevel
+                                |> Maybe.withDefault rec.level
+                    in
+                    ( Nothing
+                    , div
+                        []
+                        [ lazy LevelChooser.view nextGame ]
+                        |> Html.map (Maybe.withDefault Relax)
+                    )
 
-                        Nothing ->
-                            Relax
-                )
-            <|
-                lazy view_ board
+                Page.Game ->
+                    ( Just (lazy statusBar model)
+                    , lazy2 Minesweeper.view defaultHandlers model.board
+                        |> Html.map (Maybe.withDefault Relax << Maybe.map Cell)
+                    )
     in
     { title = "Minesweeper"
     , body =
-        [ div [ class "App" ]
-            [ div
-                [ class "SvgMinesweeper SvgMinesweeper__Container" ]
-                [ lazy statusBar model, content ]
-            , SvgHelper.defs
-            ]
+        [ div [ class "SvgMinesweeper SvgMinesweeper__Container" ]
+            (List.filterMap identity
+                [ Maybe.map (\x -> header [] [ x ]) header_
+                , Just (main_ [] [ content ])
+                ]
+            )
+        , SvgHelper.defs
         ]
     }
 
@@ -412,37 +533,155 @@ subscriptions model =
                 _ ->
                     Sub.none
     in
-    Sub.batch [ timer_, Browser.Events.onVisibilityChange VisibilityChanged ]
+    Sub.batch
+        [ timer_
+        , Browser.Events.onVisibilityChange VisibilityChanged
+        , Browser.Events.onKeyDown (D.map KeyPressed keyDecoder)
+        , windowBlurred (always GotBlurred)
+        ]
+
+
+keyDecoder : D.Decoder Key
+keyDecoder =
+    D.map toDirection (D.field "key" D.string)
+
+
+toDirection : String -> Key
+toDirection string =
+    case string of
+        "Escape" ->
+            Escape
+
+        _ ->
+            Other
 
 
 
 -- PORTS
---port saveValue : E.Value -> Cmd msg
+
+
+port windowBlurred : (String -> msg) -> Sub msg
+
+
+port saveValue : E.Value -> Cmd msg
+
+
+type alias SaveValueMsg =
+    { key : String
+    , value : E.Value
+    }
+
+
+saveLevel : Level -> Cmd msg
+saveLevel level =
+    saveValue <| saveValueEncoder { key = "level", value = levelEncoder level }
+
+
+
 --
 --
 --
 -- JSON ENCODE/DECODE
 
 
-type alias SavedModel =
-    { themes : List String
-    , theme : String
-    }
-
-
-encode : SavedModel -> E.Value
-encode model =
+saveValueEncoder : SaveValueMsg -> E.Value
+saveValueEncoder msg =
     E.object
-        [ ( "themes", E.list E.string model.themes )
-        , ( "theme", E.string model.theme )
+        [ ( "key", E.string msg.key )
+        , ( "value", msg.value )
         ]
 
 
-decoder : D.Decoder SavedModel
+type alias Flags =
+    { themes : List String
+    , theme : String
+    , level : Level
+    }
+
+
+decoder : D.Decoder Flags
 decoder =
-    D.succeed SavedModel
+    D.succeed Flags
         |> D.optional "themes" (D.list D.string) [ solarized ]
         |> D.optional "theme" D.string solarized
+        |> D.optional "level" levelDecoder (Minesweeper.beginner Square Plane)
+
+
+topologyDecoder : D.Decoder Topology
+topologyDecoder =
+    D.string
+        |> D.andThen
+            (\s ->
+                case s of
+                    "Toroid" ->
+                        D.succeed Toroid
+
+                    "Plane" ->
+                        D.succeed Plane
+
+                    _ ->
+                        D.fail <| "Invalid Topology " ++ s
+            )
+
+
+gridTypeDecoder : D.Decoder GridType
+gridTypeDecoder =
+    D.string
+        |> D.andThen
+            (\s ->
+                case s of
+                    "Hex" ->
+                        D.succeed Hex
+
+                    "Square" ->
+                        D.succeed Square
+
+                    _ ->
+                        D.fail <| "Invalid GridType " ++ s
+            )
+
+
+levelDecoder : D.Decoder Level
+levelDecoder =
+    D.succeed Level
+        |> D.required "cols" D.int
+        |> D.required "rows" D.int
+        |> D.required "topology" topologyDecoder
+        |> D.required "type" gridTypeDecoder
+        |> D.required "mines" D.float
+        |> D.required "useUncertainFlag" D.bool
+
+
+gridTypeEncoder : GridType -> E.Value
+gridTypeEncoder x =
+    case x of
+        Hex ->
+            E.string "Hex"
+
+        Square ->
+            E.string "Square"
+
+
+topologyEncoder : Topology -> E.Value
+topologyEncoder x =
+    case x of
+        Plane ->
+            E.string "Plane"
+
+        Toroid ->
+            E.string "Toroid"
+
+
+levelEncoder : Level -> E.Value
+levelEncoder level =
+    E.object
+        [ ( "cols", E.int level.cols )
+        , ( "rows", E.int level.rows )
+        , ( "topology", topologyEncoder level.topology )
+        , ( "type", gridTypeEncoder level.type_ )
+        , ( "mines", E.float level.mines )
+        , ( "useUncertainFlag", E.bool level.useUncertainFlag )
+        ]
 
 
 elapsed : Posix -> ( Int, Maybe Time.Posix ) -> Int

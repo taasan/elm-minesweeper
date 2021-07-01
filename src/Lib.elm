@@ -1,17 +1,16 @@
 module Lib exposing
     ( between
     , bool2int
-    , flip
+    , combine
     , getSeed
     , isEven
     , isOdd
-    , message
     )
 
 import Bitwise exposing (and)
-import Random exposing (Generator)
+import Random
 import Task
-import Time exposing (Posix)
+import Time
 import Types exposing (Msg(..))
 
 
@@ -46,19 +45,16 @@ bool2int b =
         0
 
 
-flip : (c -> b -> a) -> b -> c -> a
-flip f x y =
-    f y x
+getSeed : Task.Task x Random.Seed
+getSeed =
+    Task.andThen (\time -> Task.succeed (Random.initialSeed (Time.posixToMillis time))) Time.now
 
 
-getSeed : Posix -> Msg
-getSeed p =
-    p
-        |> Time.posixToMillis
-        |> Random.initialSeed
-        |> GotSeed
+combine : List a -> List b -> List ( a, b )
+combine xs ys =
+    apply (List.map Tuple.pair xs) ys
 
 
-message : Msg -> Cmd Msg
-message msg =
-    Task.perform (always msg) (Task.succeed ())
+apply : List (a -> b) -> List a -> List b
+apply fs xs =
+    List.concatMap (\f -> List.map f xs) fs

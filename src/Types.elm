@@ -6,27 +6,24 @@ module Types exposing
     , Coordinate
     , DoneState(..)
     , Flag(..)
+    , GameMsg(..)
     , GridType(..)
+    , Key(..)
     , Level
     , Mine(..)
     , Msg(..)
     , Revealed(..)
-    , RevealedState(..)
-    , Shade(..)
-    , Theme
+    , StackOperation(..)
     , TimerEvent(..)
     , Topology(..)
     , doneState
     , getIndex
-    , isDone
-    , isWon
     )
 
-import Browser
 import Browser.Events
+import Page exposing (Page)
 import Random exposing (Seed)
 import Time
-import Url
 
 
 
@@ -35,18 +32,33 @@ import Url
 
 type Msg
     = Cell CellMsg
+    | Game GameMsg
     | TogglePause
     | GotBlurred
-    | NewGame Level
-    | SetTheme String
-    | RandomGame Level
     | GotSeed Seed
     | GotCurrentTime Time.Posix
     | GotTimerEvent TimerEvent Time.Posix
+    | GotLevel (Maybe Level)
     | Relax
-    | LinkClicked Browser.UrlRequest
-    | UrlChanged Url.Url
     | VisibilityChanged Browser.Events.Visibility
+    | GotPage StackOperation Page
+    | PopPage
+    | KeyPressed Key
+
+
+type Key
+    = Escape
+    | Other
+
+
+type StackOperation
+    = Replace
+    | Push
+
+
+type GameMsg
+    = NewGame Level
+    | RandomGame Level
 
 
 type CellMsg
@@ -61,11 +73,6 @@ type CellMsg
 type DoneState
     = Completed
     | GameOver
-
-
-type RevealedState
-    = Revealed
-    | NotRevealed
 
 
 type BoardState
@@ -91,7 +98,8 @@ type alias Level =
     , rows : Int
     , topology : Topology
     , type_ : GridType
-    , mines : Int
+    , mines : Float
+    , useUncertainFlag : Bool
     }
 
 
@@ -172,38 +180,18 @@ getIndex cell =
 
 
 -- THEME
+{- }
+   type Shade
+       = Dark
+       | Light
 
 
-type Shade
-    = Dark
-    | Light
-
-
-type alias Theme =
-    { name : String
-    , classes : List String
-    , variant : Shade
-    }
-
-
-isDone : BoardState -> Bool
-isDone s =
-    case s of
-        Done _ ->
-            True
-
-        _ ->
-            False
-
-
-isWon : BoardState -> Bool
-isWon s =
-    case s of
-        Done Completed ->
-            True
-
-        _ ->
-            False
+   type alias Theme =
+       { name : String
+       , classes : List String
+       , variant : Shade
+       }
+-}
 
 
 doneState : BoardState -> ( Bool, Bool )

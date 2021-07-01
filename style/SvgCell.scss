@@ -116,7 +116,7 @@ $flagTypes: $FLAGGED, $UNCERTAIN;
   }
 
   &[data-s="#{$NEW}"] .cc:hover {
-    fill: var(--mine-detonated-background, revert);
+    fill: var(--cell-background-hover, revert);
   }
 
   &[data-s="#{$EXPLODED}"] .cb {

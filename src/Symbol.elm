@@ -120,12 +120,11 @@ toString s =
                 tamil =
                     3046
 
-                thai =
-                    3664
-
-                ascii =
-                    Char.toCode '0'
-
+                --thai =
+                --    3664
+                --
+                --ascii =
+                --    Char.toCode '0'
                 map : Int -> Char
                 map n =
                     Char.fromCode (tamil + n)
