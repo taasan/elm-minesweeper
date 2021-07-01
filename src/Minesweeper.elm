@@ -55,6 +55,7 @@ import Types
         , Cell(..)
         , CellMsg(..)
         , CellState
+        , ChangeMethod
         , Coordinate
         , DoneState(..)
         , Flag(..)
@@ -62,11 +63,14 @@ import Types
         , Level
         , Mine(..)
         , Msg(..)
+        , PlayState(..)
         , Revealed(..)
         , TimerEvent(..)
         , Topology(..)
         , doneState
         , getIndex
+        , inProgress
+        , paused
         )
 
 
@@ -92,10 +96,10 @@ boardState2String state =
         Initialized ->
             "INITIALIZED"
 
-        Playing ->
+        Playing InProgress ->
             "PLAYING"
 
-        Paused ->
+        Playing (Paused _) ->
             "PAUSED"
 
         Done Completed ->
@@ -110,7 +114,7 @@ boardState2String state =
 
 flag : Int -> Board -> ( Board, Maybe TimerEvent )
 flag index board =
-    ( if board.state /= Playing then
+    ( if not <| inProgress board.state then
         board
 
       else
@@ -143,10 +147,10 @@ updateCell board cell =
                         Done GameOver
 
                     else
-                        Playing
+                        board.state
 
                 _ ->
-                    Playing
+                    board.state
     in
     { board
         | state = newState
@@ -190,7 +194,7 @@ gameWon board =
         Done Completed ->
             True
 
-        Playing ->
+        Playing InProgress ->
             let
                 { rows, cols } =
                     board.level
@@ -209,7 +213,7 @@ gameWon board =
 
 revealNeighbours : Cell -> Board -> Board
 revealNeighbours cell board =
-    if board.state /= Playing then
+    if not <| inProgress board.state then
         board
 
     else
@@ -238,7 +242,7 @@ revealNeighbours cell board =
 
 poke : Int -> Board -> ( Board, Maybe TimerEvent )
 poke index board =
-    if board.state /= Playing then
+    if not <| inProgress board.state then
         ( board, Nothing )
 
     else
@@ -396,10 +400,10 @@ update seed msg ((Board board) as game) =
             update seed msg (initialize seed game)
 
         Initialized ->
-            (update seed msg << Board) { board | state = Playing }
+            (update seed msg << Board) { board | state = Playing InProgress }
                 |> Tuple.mapSecond (always (Just Start))
 
-        Playing ->
+        Playing InProgress ->
             Tuple.mapFirst Board (cmd cell board)
 
         Done GameOver ->
@@ -412,18 +416,18 @@ update seed msg ((Board board) as game) =
             ( Board board, Nothing )
 
 
-togglePause : Minesweeper -> ( Minesweeper, Maybe TimerEvent )
-togglePause (Board b) =
+togglePause : ChangeMethod -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
+togglePause pauseState (Board b) =
     let
         { state } =
             b
     in
     case state of
-        Playing ->
-            ( Board { b | state = Paused }, Just Stop )
+        Playing InProgress ->
+            ( Board { b | state = Playing <| Paused pauseState }, Just Stop )
 
-        Paused ->
-            ( Board { b | state = Playing }, Just Start )
+        Playing (Paused _) ->
+            ( Board { b | state = Playing InProgress }, Just Start )
 
         _ ->
             ( Board b, Nothing )
@@ -1235,7 +1239,7 @@ viewCell handlers boardState gridType cell =
                     []
 
         attachHandlers =
-            not (completed || gameOver || boardState == Demo || boardState == Paused)
+            not (completed || gameOver || boardState == Demo || paused boardState)
 
         stop e =
             { stopPropagation = True, preventDefault = True }

@@ -38,6 +38,7 @@ import Types
         ( BoardState(..)
         , Cell
         , CellMsg(..)
+        , ChangeMethod(..)
         , DoneState(..)
         , Flag(..)
         , GameMsg(..)
@@ -45,9 +46,12 @@ import Types
         , Key(..)
         , Level
         , Msg(..)
+        , PlayState(..)
         , StackOperation(..)
         , TimerEvent(..)
         , Topology(..)
+        , inProgress
+        , paused
         )
 import Url exposing (Url)
 
@@ -216,11 +220,11 @@ handleCellMessage msg model =
     ( { model | board = updatedBoard }, cmd )
 
 
-doTogglePause : Model -> ( Model, Cmd Msg )
-doTogglePause model =
+doTogglePause : ChangeMethod -> Model -> ( Model, Cmd Msg )
+doTogglePause pauseState model =
     let
         ( b, s ) =
-            Minesweeper.togglePause model.board
+            Minesweeper.togglePause pauseState model.board
     in
     case s of
         Just event ->
@@ -244,11 +248,12 @@ postUpdate old ( new, cmd ) =
                 getBoard new.board
 
             shouldTogglePause =
-                (pages.head == Page.Game && state == Paused)
-                    || (pages.head /= Page.Game && state == Playing)
+                (state /= Playing (Paused Manual))
+                    && (pages.head == Page.Game && paused state)
+                    || (pages.head /= Page.Game && inProgress state)
         in
         if shouldTogglePause then
-            doTogglePause new
+            doTogglePause Automatic new
                 |> Tuple.mapSecond (\x -> Cmd.batch [ x, cmd ])
 
         else
@@ -275,11 +280,11 @@ update_ msg model =
     in
     case msg of
         TogglePause ->
-            doTogglePause model
+            doTogglePause Manual model
 
         GotBlurred ->
-            if state == Playing then
-                doTogglePause model
+            if inProgress state then
+                doTogglePause Automatic model
 
             else
                 noop
@@ -374,7 +379,7 @@ statusBar model =
 
         renderState =
             case state of
-                Playing ->
+                Playing InProgress ->
                     let
                         f n s =
                             String.repeat n (Symbol.toString s)
@@ -388,7 +393,7 @@ statusBar model =
 
                     else
                         Symbol.toString
-                            (if state == Playing then
+                            (if inProgress state then
                                 Symbol.Heart
 
                              else
@@ -509,7 +514,7 @@ subscriptions model =
 
         timer_ =
             case rec.state of
-                Playing ->
+                Playing InProgress ->
                     Time.every 1000 GotCurrentTime
 
                 _ ->

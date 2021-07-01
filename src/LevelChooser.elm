@@ -28,6 +28,7 @@ import Types
         , GridType(..)
         , Level
         , Msg(..)
+        , PlayState(..)
         , Topology(..)
         )
 
@@ -152,7 +153,7 @@ viewEmptyCell t flagged =
             else
                 New 0 Nothing
     in
-    viewCell Nothing Playing t cell
+    viewCell Nothing (Playing InProgress) t cell
 
 
 radio : String -> String -> Bool -> msg -> Html msg -> Html msg

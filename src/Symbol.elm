@@ -5,13 +5,7 @@ module Symbol exposing
     )
 
 import Random
-import Types
-    exposing
-        ( BoardState(..)
-        , DoneState(..)
-        , Flag(..)
-        , Mine(..)
-        )
+import Types exposing (BoardState(..), DoneState(..), Flag(..), Mine(..), PlayState(..))
 
 
 randomMine : Random.Generator Mine
@@ -154,7 +148,7 @@ toString s =
                 Done Completed ->
                     "🏆"
 
-                Paused ->
+                Playing (Paused _) ->
                     "🧘"
 
                 NotInitialized ->
@@ -163,7 +157,7 @@ toString s =
                 Initialized ->
                     "🤟"
 
-                Playing ->
+                Playing InProgress ->
                     "🎮"
 
                 Demo ->

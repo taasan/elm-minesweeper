@@ -3,6 +3,7 @@ module Types exposing
     , Cell(..)
     , CellMsg(..)
     , CellState
+    , ChangeMethod(..)
     , Coordinate
     , DoneState(..)
     , Flag(..)
@@ -12,12 +13,15 @@ module Types exposing
     , Level
     , Mine(..)
     , Msg(..)
+    , PlayState(..)
     , Revealed(..)
     , StackOperation(..)
     , TimerEvent(..)
     , Topology(..)
     , doneState
     , getIndex
+    , inProgress
+    , paused
     )
 
 import Browser.Events
@@ -75,13 +79,42 @@ type DoneState
     | GameOver
 
 
+type ChangeMethod
+    = Manual
+    | Automatic
+
+
+type PlayState
+    = InProgress
+    | Paused ChangeMethod
+
+
 type BoardState
     = NotInitialized
     | Initialized
-    | Playing
-    | Paused
+    | Playing PlayState
     | Done DoneState
     | Demo
+
+
+inProgress : BoardState -> Bool
+inProgress state =
+    case state of
+        Playing InProgress ->
+            True
+
+        _ ->
+            False
+
+
+paused : BoardState -> Bool
+paused state =
+    case state of
+        Playing (Paused _) ->
+            True
+
+        _ ->
+            False
 
 
 
