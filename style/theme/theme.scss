@@ -1,11 +1,12 @@
-.Theme__Default {
+:root, .Theme__Default {
   --mine-detonated-background: red;
   --mine-detonated-animation: none;
 
   --cell-border: var(--cell-background-open);
   --cell-background: lightSlateGray;
   --cell-background-open: #eee;
-  --cell-background-flagged-wrong: var(--cell-background);
+  --cell-background-flagged-wrong: var(--not-ok);
+  --cell-background-hover: var(--not-ok);
   --cell-threats-1-color: DodgerBlue;
   --cell-threats-2-color: ForestGreen;
   --cell-threats-3-color: crimson;
@@ -31,6 +32,7 @@
   --foreground-base2: #202020;
   --foreground-base1: #404040;
   --foreground-base0: #606060;
-  background-color: var(--background-base3);
-  color: var(--foreground-base3);
+
+  --ok: var(--cell-threats-2-color);
+  --not-ok: var(--cell-threats-3-color);
 }
