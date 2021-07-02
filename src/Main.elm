@@ -319,7 +319,11 @@ update_ msg model =
             update GotBlurred model
 
         VisibilityChanged Browser.Events.Visible ->
-            noop
+            if state == Playing (Paused Automatic) then
+                doTogglePause Automatic model
+
+            else
+                noop
 
         GotLevel level ->
             let
