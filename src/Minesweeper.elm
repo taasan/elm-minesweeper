@@ -18,6 +18,8 @@ module Minesweeper exposing
     )
 
 import Array exposing (Array)
+import Array.Extra as Array
+import Basics.Extra exposing (flip)
 import Dict
 import Html exposing (Html)
 import Html.Attributes exposing (attribute)
@@ -51,7 +53,8 @@ import SvgHelper
 import Symbol exposing (Symbol(..), randomMine)
 import Types
     exposing
-        ( BoardState(..)
+        ( BoardEntry
+        , BoardState(..)
         , Cell(..)
         , CellMsg(..)
         , CellState
@@ -118,27 +121,27 @@ flag index board =
         board
 
       else
-        case Array.get index board.cells of
+        case Array.get index board.entries of
             Nothing ->
                 board
 
-            Just cell ->
-                updateCell board (flagCell board.useUncertainFlag cell)
+            Just entry ->
+                updateCell board (flagCell board.useUncertainFlag entry)
     , Nothing
     )
 
 
-updateCell : Board -> Cell -> Board
-updateCell board cell =
+updateCell : Board -> { a | cell : Cell } -> Board
+updateCell board { cell } =
     let
         coordinate =
             getIndex cell
 
-        cells =
-            Array.set coordinate cell board.cells
+        entries =
+            Array.update coordinate (\c -> { c | cell = cell }) board.entries
 
         stats =
-            countStates cells
+            countStates entries
 
         newState =
             case cell of
@@ -154,36 +157,27 @@ updateCell board cell =
     in
     { board
         | state = newState
-        , cells = cells
+        , entries = entries
         , stats = stats
     }
 
 
-revealSingle : Int -> Cell -> Cell
-revealSingle threats cell =
+revealSingle : BoardEntry -> BoardEntry
+revealSingle ({ threats, cell } as entry) =
     case cell of
         New i (Just mine) ->
-            Exposed i (Mined mine)
+            { entry | cell = Exposed i (Mined mine) }
 
         New i _ ->
-            Exposed i (Open threats)
+            { entry | cell = Exposed i (Open threats) }
 
         _ ->
-            cell
+            entry
 
 
-mapThreats : Board -> Cell -> Int
-mapThreats board =
-    .mined << countNeighbourStates board
-
-
-revealAll : Array Int -> Board -> ( Board, Maybe TimerEvent )
-revealAll threatMap board =
-    let
-        mapCell cell =
-            revealSingle (Maybe.withDefault -1 (Array.get (getIndex cell) threatMap)) cell
-    in
-    ( { board | cells = Array.map mapCell board.cells }
+revealAll : Board -> ( Board, Maybe TimerEvent )
+revealAll board =
+    ( { board | entries = Array.map revealSingle board.entries }
     , Just Stop
     )
 
@@ -211,30 +205,38 @@ gameWon board =
             False
 
 
-revealNeighbours : Cell -> Board -> Board
-revealNeighbours cell board =
+revealNeighbours : Int -> Board -> Board
+revealNeighbours index board =
     if not <| inProgress board.state then
         board
 
     else
         let
-            mayPoke : Cell -> Bool
+            mayPoke : Int -> Bool
             mayPoke c =
-                case c of
-                    New _ _ ->
+                case Maybe.map .cell <| Array.get c board.entries of
+                    Just (New _ _) ->
                         True
 
-                    Flagged _ Uncertain _ ->
+                    Just (Flagged _ Uncertain _) ->
                         True
 
                     _ ->
                         False
 
-            folder : Cell -> Board -> Board
-            folder c b =
-                Tuple.first (poke (getIndex c) b)
+            folder : Int -> Board -> Board
+            folder i b =
+                Tuple.first (poke i b)
+
+            getNeighbours =
+                case Array.get index board.entries of
+                    Nothing ->
+                        []
+
+                    Just { neighbours } ->
+                        neighbours
         in
-        getNeighbours board cell
+        getNeighbours
             -- Only poke new cells
             |> List.filter mayPoke
             |> List.foldl folder board
@@ -246,28 +248,16 @@ poke index board =
         ( board, Nothing )
 
     else
-        case Array.get index board.cells of
+        case Array.get index board.entries of
             Nothing ->
                 ( board, Nothing )
 
-            Just cell ->
+            Just ({ threats, cell } as entry) ->
                 let
-                    threatMap : () -> Array Int
-                    threatMap _ =
-                        Array.map (mapThreats board) board.cells
-
-                    neighbourMap : () -> Array ( Int, List Int )
-                    neighbourMap _ =
-                        Array.map
-                            (\c ->
-                                ( mapThreats board c, (List.map getIndex << getNeighbours board) c )
-                            )
-                            board.cells
-
                     newBoard =
                         let
                             { mined, exploded, flagged, flaggedUncertain } =
-                                countNeighbourStates board cell
+                                countNeighbourStates board index
                         in
                         case cell of
                             Exposed _ (Open 0) ->
@@ -275,67 +265,44 @@ poke index board =
 
                             Exposed _ (Open _) ->
                                 if flagged + exploded - flaggedUncertain == mined then
-                                    revealNeighbours cell board
+                                    revealNeighbours (getIndex entry.cell) board
 
                                 else
                                     board
 
                             New i Nothing ->
-                                let
-                                    numThreats =
-                                        mapThreats board cell
-                                in
-                                if numThreats /= 0 then
-                                    (updateCell board << revealSingle numThreats) cell
+                                if threats /= 0 then
+                                    (updateCell board << revealSingle) entry
 
                                 else
                                     let
                                         safeCells : Set Int
                                         safeCells =
-                                            collectSafe board.level (neighbourMap ()) i Set.empty
+                                            collectSafe board.level board.entries i Set.empty
 
-                                        newCells =
+                                        newEntries : Array BoardEntry
+                                        newEntries =
                                             Array.map
-                                                (\c ->
-                                                    let
-                                                        idx =
-                                                            getIndex c
-                                                    in
-                                                    if Set.member idx safeCells then
-                                                        (Exposed idx << Open << threats) idx
+                                                (\e ->
+                                                    { e
+                                                        | cell =
+                                                            let
+                                                                idx =
+                                                                    getIndex e.cell
+                                                            in
+                                                            if Set.member idx safeCells then
+                                                                Exposed (getIndex e.cell) (Open e.threats)
 
-                                                    else
-                                                        c
+                                                            else
+                                                                e.cell
+                                                    }
                                                 )
-                                                board.cells
-
-                                        threatMap_ =
-                                            threatMap ()
-
-                                        threats n =
-                                            Maybe.withDefault -1 (Array.get n threatMap_)
+                                                board.entries
                                     in
-                                    { board | cells = newCells, stats = countStates newCells }
+                                    { board | entries = newEntries, stats = countStates newEntries }
 
-                            New i m ->
-                                let
-                                    newCell =
-                                        Exposed i
-                                            (if m /= Nothing then
-                                                Exploded
-
-                                             else
-                                                Open mined
-                                            )
-
-                                    updated =
-                                        updateCell board newCell
-                                in
-                                if mined == 0 && m == Nothing then
-                                    revealNeighbours cell updated
-
-                                else
-                                    updated
+                            New i (Just _) ->
+                                updateCell board { cell = Exposed i Exploded }
 
                             Flagged i Uncertain _ ->
                                 let
@@ -352,10 +319,10 @@ poke index board =
                         doneState newBoard.state
                 in
                 if gameOver || completed then
-                    revealAll (threatMap ()) newBoard
+                    revealAll newBoard
 
                 else if gameWon newBoard then
-                    revealAll (threatMap ()) { newBoard | state = Done Completed }
+                    revealAll { newBoard | state = Done Completed }
 
                 else
                     ( newBoard, Nothing )
@@ -443,14 +410,14 @@ type alias PartialBoard a =
 
 type alias Board =
     PartialBoard
-        { cells : Array Cell
+        { entries : Array BoardEntry
         , state : BoardState
         , stats : CellState Int
         }
 
 
 emptyBoard =
-    { cells = Array.empty
+    { entries = Array.empty
     , state = NotInitialized
     , lives = 3
     , useUncertainFlag = True
@@ -475,7 +442,7 @@ demoBoard topology type_ =
                         }
                 }
 
-        cell i _ =
+        cell i =
             if i < 8 then
                 Exposed i (Open (i + 1))
 
@@ -508,7 +475,7 @@ demoBoard topology type_ =
     Board
         { board
             | state = Demo
-            , cells = Array.indexedMap cell board.cells
+            , entries = Array.indexedMap (\i e -> { e | cell = cell i }) board.entries
         }
 
 
@@ -517,58 +484,62 @@ mkBoard x =
     let
         level =
             mkLevel x.level
+
+        emptyEntry : Int -> BoardEntry
+        emptyEntry i =
+            { cell = New i Nothing, threats = 0, neighbours = [] }
     in
     Board <|
         { emptyBoard
             | level = level
             , lives = x.lives
             , useUncertainFlag = x.useUncertainFlag
-            , cells = Array.initialize (level.cols * level.rows) (\i -> New i Nothing)
+            , entries = Array.initialize (level.cols * level.rows) emptyEntry
         }
 
 
 initialize : Seed -> Minesweeper -> Minesweeper
-initialize seed (Board board) =
-    Board
-        { board
-            | state = Initialized
-            , lives = clamp 1 3 board.lives
-            , cells = createCells board.level seed
-            , level = board.level
-        }
-
-
-clampMines : Float -> Float
-clampMines =
-    clamp 0.1 0.4
-
-
-mineRange : Level -> { min : Int, max : Int }
-mineRange level =
+initialize seed (Board b) =
     let
-        min_ =
-            numMines { level | mines = clampMines 0 }
+        level =
+            b.level
 
-        max_ =
-            numMines { level | mines = clampMines 1 }
-    in
-    { min = min_, max = max_ }
+        dim =
+            level.rows * level.cols
 
+        entries =
+            let
+                cells =
+                    Array.initialize dim (\i -> New i (Dict.get i mineDict))
 
-numMines : Level -> Int
-numMines level =
-    round <| toFloat level.rows * toFloat level.cols * clampMines level.mines
+                calculateIndex coordinate =
+                    coordinate.col + level.cols * coordinate.row
 
-
-createCells : Level -> Seed -> Array Cell
-createCells level seed =
-    let
-        { rows, cols } =
-            level
+                getNeighbours x origin =
+                    getNeighbourCoordinates origin x.level
+                        |> List.map (\i -> Array.get (calculateIndex i) x.entries)
+                        |> List.filterMap identity
+            in
+            Array.indexedMap
+                (\i c ->
+                    let
+                        neighbourStates =
+                            getNeighbours { level = board.level, entries = cells } i
+                                |> List.map (\x -> { cell = x })
+                                |> Array.fromList
+                                |> countStates
+                    in
+                    { cell = c
+                    , threats = neighbourStates.mined
+                    , neighbours = (List.map getIndex << getNeighbours { level = board.level, entries = cells }) i
+                    }
+                )
+            <|
+                cells
 
         mineSet =
             seed
-                |> Random.step (Random.set (numMines level) (Random.int 0 (rows * cols - 1)))
+                |> Random.step (Random.set (numMines level) (Random.int 0 (dim - 1)))
                 |> Tuple.first
 
         randomMine_ : a -> Int -> ( Int, Mine )
@@ -585,10 +556,36 @@ createCells level seed =
                 |> List.indexedMap randomMine_
                 |> Dict.fromList
 
-        cells =
-            Array.initialize (rows * cols) (\i -> New i (Dict.get i mineDict))
+        board =
+            { b
+                | state = Initialized
+                , lives = clamp 1 3 b.lives
+                , level = level
+            }
     in
-    cells
+    Board { board | entries = entries }
+
+
+clampMines : Float -> Float
+clampMines =
+    clamp 0.1 0.25
+
+
+mineRange : Level -> { min : { count : Int, ratio : Float }, max : { count : Int, ratio : Float } }
+mineRange level =
+    let
+        f x =
+            { count = numMines { level | mines = x }, ratio = x }
+    in
+    { min = f (clampMines 0), max = f (clampMines 1) }
+
+
+numMines : Level -> Int
+numMines level =
+    round <|
+        toFloat level.rows
+            * toFloat level.cols
+            * clampMines level.mines
 
 
 
@@ -665,7 +662,7 @@ view handlers (Board board) =
                     Array.initialize (rows * cols) (\i -> New i Nothing)
 
                 _ ->
-                    board.cells
+                    Array.map .cell board.entries
 
         { type_, topology, rows, cols } =
             level
@@ -760,8 +757,7 @@ view handlers (Board board) =
                     []
 
         cells_ =
-            Array.toList cells
-                |> List.indexedMap mapCell
+            Array.indexedMapToList mapCell cells
                 |> (++) extraCells
 
         attributes =
@@ -781,57 +777,52 @@ view handlers (Board board) =
 -- Helpers
 
 
-getNeighbours : Board -> Cell -> List Cell
-getNeighbours x cell =
-    let
-        calculateIndex coordinate =
-            coordinate.col + x.level.cols * coordinate.row
-    in
-    getNeighbourCoordinates (getIndex cell) x.level
-        |> List.map (\i -> Array.get (calculateIndex i) x.cells)
-        |> List.filterMap identity
-
-
-countNeighbourStates : Board -> Cell -> CellState Int
+countNeighbourStates : Board -> Int -> CellState Int
 countNeighbourStates board origin =
-    getNeighbours board origin
-        |> Array.fromList
-        |> countStates
+    let
+        getNeighbours i =
+            case Array.get i board.entries of
+                Just { neighbours } ->
+                    List.filterMap (flip Array.get board.entries) neighbours
+
+                _ ->
+                    []
+    in
+    (countStates << Array.fromList << getNeighbours) origin
 
 
-countStates : Array Cell -> CellState Int
-countStates cells =
+countStates : Array { a | cell : Cell } -> CellState Int
+countStates entries =
     let
         initial =
             mapCellState bool2int emptyCellState
 
-        folder : Cell -> CellState Int -> CellState Int
         folder =
-            liftState2 ((+) << bool2int) << cellState
+            liftState2 ((+) << bool2int) << cellState << .cell
     in
-    cells
+    entries
         |> Array.foldl folder initial
 
 
-{-| infoMap Array[cell index] (threatCount, neighbours)
--}
-collectSafe : Level -> Array ( Int, List Int ) -> Int -> Set Int -> Set Int
-collectSafe level infoMap origin acc =
+collectSafe : Level -> Array BoardEntry -> Int -> Set Int -> Set Int
+collectSafe level entries origin acc =
     let
         safe =
             Set.insert origin acc
     in
-    case Array.get origin infoMap of
-        -- 0 threats, safe to open neighbours
-        Just ( 0, neighbours ) ->
-            if Set.member origin acc then
-                -- already visited
-                safe
+    case Array.get origin entries of
+        Just { threats, neighbours } ->
+            let
+                isNotVisited x =
+                    (not << Set.member x) acc
+            in
+            if threats == 0 && isNotVisited origin then
+                neighbours
+                    |> List.filter isNotVisited
+                    |> List.foldl (collectSafe level entries) safe
 
             else
-                neighbours
-                    |> List.filter (\x -> (not << Set.member x) acc)
-                    |> List.foldl (collectSafe level infoMap) safe
+                safe
 
         _ ->
             safe
@@ -1103,26 +1094,30 @@ cellState cell =
             }
 
 
-flagCell : Bool -> Cell -> Cell
-flagCell useUncertain cell =
-    case cell of
-        New i mined ->
-            Flagged i Normal mined
+flagCell : Bool -> { a | cell : Cell } -> { a | cell : Cell }
+flagCell useUncertain entry =
+    let
+        cell =
+            case entry.cell of
+                New i mined ->
+                    Flagged i Normal mined
 
-        Flagged i c mined ->
-            if useUncertain then
-                case c of
-                    Normal ->
-                        Flagged i Uncertain mined
+                Flagged i c mined ->
+                    if useUncertain then
+                        case c of
+                            Normal ->
+                                Flagged i Uncertain mined
 
-                    _ ->
+                            _ ->
+                                New i mined
+
+                    else
                         New i mined
 
-            else
-                New i mined
-
-        Exposed _ _ ->
-            cell
+                Exposed _ _ ->
+                    entry.cell
+    in
+    { entry | cell = cell }
 
 
 

@@ -1,5 +1,6 @@
 module Types exposing
-    ( BoardState(..)
+    ( BoardEntry
+    , BoardState(..)
     , Cell(..)
     , CellMsg(..)
     , CellState
@@ -172,6 +173,13 @@ type Flag
     = Normal
     | Uncertain
     | Special
+
+
+type alias BoardEntry =
+    { cell : Cell
+    , threats : Int
+    , neighbours : List Int
+    }
 
 
 type Cell

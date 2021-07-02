@@ -94,7 +94,7 @@ view level =
             mineRange level
 
         mineStep =
-            (0.3 / toFloat (mineRange_.max - mineRange_.min))
+            (0.3 / toFloat (mineRange_.max.count - mineRange_.min.count))
                 |> String.fromFloat
                 |> String.left 6
     in
@@ -112,7 +112,7 @@ view level =
             , fieldset []
                 [ slider "1" String.fromInt 6 30 "Rows" level.rows (numberChanged String.toInt setRows)
                 , slider "1" String.fromInt 6 30 "Columns" level.cols (numberChanged String.toInt setCols)
-                , slider mineStep String.fromFloat 0.1 0.4 "Mines" level.mines (numberChanged String.toFloat setMines)
+                , slider mineStep String.fromFloat mineRange_.min.ratio mineRange_.max.ratio "Mines" level.mines (numberChanged String.toFloat setMines)
                 ]
             , div [ class "LevelChooser__demos" ] (demos level)
             ]
