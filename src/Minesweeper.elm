@@ -1,16 +1,19 @@
 module Minesweeper exposing
-    ( Board
-    , Handler
-    , Handlers
+    (  Board
+       -- Comment to prevent the language server from making this list a one-liner
+
     , Minesweeper
     , PartialBoard
     , beginner
-    , defaultHandlers
+    , cellState
     , demoBoard
     , getBoard
+    , initialize
     , mineRange
     , mkBoard
     , mkLevel
+    , numMines
+    , paused
     , togglePause
     , update
     , view
@@ -23,7 +26,7 @@ import Basics.Extra exposing (flip)
 import Dict
 import Html exposing (Html)
 import Html.Attributes exposing (attribute)
-import Html.Events.Extra.Mouse as Event
+import Html.Lazy exposing (lazy5)
 import Lib
     exposing
         ( between
@@ -31,29 +34,42 @@ import Lib
         , isEven
         , isOdd
         )
+import Player
+    exposing
+        ( Handlers
+          --
+        , Player
+        , PlayerInfo
+        )
 import Random exposing (Seed)
 import Random.Set as Random
 import Set exposing (Set)
 import Svg
     exposing
         ( g
+          --
         , svg
         , text
         , text_
         , use
         )
-import Svg.Attributes as A
-import Svg.Lazy exposing (lazy3, lazy4)
+import Svg.Attributes as A exposing (height, width)
+import Svg.Lazy exposing (lazy3)
 import SvgHelper
     exposing
         ( cellSize
+          --
         , hexOffset
         , href
         )
-import Symbol exposing (Symbol(..), randomMine)
+import Symbol
+    exposing
+        ( randomMine
+        )
 import Types
     exposing
         ( BoardEntry
+          --
         , BoardState(..)
         , Cell(..)
         , CellMsg(..)
@@ -72,17 +88,11 @@ import Types
         , Topology(..)
         , doneState
         , getIndex
-        , inProgress
-        , paused
         )
 
 
 type Minesweeper
     = Board Board
-
-
-
--- getBoardRecord : Minesweeper -> PartialBoard {}
 
 
 getBoard : Minesweeper -> Board
@@ -115,61 +125,51 @@ boardState2String state =
             "DEMO"
 
 
-flag : Int -> Board -> ( Board, Maybe TimerEvent )
-flag index board =
-    ( if not <| inProgress board.state then
-        board
-
-      else
-        case Array.get index board.entries of
-            Nothing ->
-                board
-
-            Just entry ->
-                updateCell board (flagCell board.useUncertainFlag entry)
-    , Nothing
-    )
-
-
-updateCell : Board -> { a | cell : Cell } -> Board
-updateCell board { cell } =
+flag : Maybe Flag -> Player msg -> Set Int -> Board -> ( Board, Maybe TimerEvent )
+flag f _ cells board =
     let
-        coordinate =
-            getIndex cell
+        flag_ : Int -> Array BoardEntry -> Array BoardEntry
+        flag_ i es =
+            es
+                |> Array.update i
+                    (\e ->
+                        let
+                            cell m =
+                                case f of
+                                    Just x ->
+                                        Flagged i x m
 
-        entries =
-            Array.update coordinate (\c -> { c | cell = cell }) board.entries
+                                    _ ->
+                                        Covered i m
+                        in
+                        { e
+                            | cell =
+                                case e.cell of
+                                    Covered _ m ->
+                                        cell m
 
-        stats =
-            countStates entries
+                                    Flagged _ _ m ->
+                                        cell m
 
-        newState =
-            case cell of
-                Exposed _ Exploded ->
-                    if stats.exploded >= board.lives then
-                        Done GameOver
+                                    _ ->
+                                        e.cell
+                        }
+                    )
 
-                    else
-                        board.state
-
-                _ ->
-                    board.state
+        newEntries =
+            Set.foldr flag_ board.entries cells
     in
-    { board
-        | state = newState
-        , entries = entries
-        , stats = stats
-    }
+    ( { board | entries = newEntries }, Nothing )
 
 
 revealSingle : BoardEntry -> BoardEntry
 revealSingle ({ threats, cell } as entry) =
     case cell of
-        New i (Just mine) ->
+        Covered i (Just mine) ->
             { entry | cell = Exposed i (Mined mine) }
 
-        New i _ ->
-            { entry | cell = Exposed i (Open threats) }
+        Covered i _ ->
+            { entry | cell = Exposed i (Uncovered threats) }
 
         _ ->
             entry
@@ -182,192 +182,157 @@ revealAll board =
     )
 
 
-gameWon : Board -> Bool
-gameWon board =
-    case board.state of
-        Done Completed ->
-            True
+revealNeighbours : PlayerInfo msg -> Level -> Int -> Array BoardEntry -> Array BoardEntry
+revealNeighbours player level index entries =
+    let
+        mayPoke : Int -> Bool
+        mayPoke c =
+            case Maybe.map .cell <| Array.get c entries of
+                Just (Covered _ _) ->
+                    True
 
-        Playing InProgress ->
+                Just (Flagged _ Uncertain _) ->
+                    True
+
+                _ ->
+                    False
+
+        folder : Int -> Array BoardEntry -> Array BoardEntry
+        folder =
+            pokeCell level player
+
+        neighbours =
+            (Maybe.withDefault [] << Maybe.map .neighbours) <| Array.get index entries
+    in
+    neighbours
+        -- Only poke new cells
+        |> List.filter mayPoke
+        |> List.foldl folder entries
+
+
+pokeCell : Level -> PlayerInfo msg -> Int -> Array BoardEntry -> Array BoardEntry
+pokeCell level player index entries =
+    case Array.get index entries of
+        Nothing ->
+            entries
+
+        Just ({ threats, cell } as entry) ->
             let
-                { rows, cols } =
-                    board.level
+                updateEntry x =
+                    Array.set index x entries
 
-                { stats } =
-                    board
+                expose mined =
+                    if mined then
+                        Exposed index Exploded
 
-                { mined, open } =
-                    stats
+                    else
+                        Exposed index (Uncovered threats)
             in
-            open + mined == rows * cols
+            case entry.cell of
+                Covered _ Nothing ->
+                    if threats == 0 && player.autoRevealSafe then
+                        revealSafe index { level = level, entries = entries }
 
-        _ ->
-            False
+                    else
+                        updateEntry { entry | cell = expose False }
 
+                Covered _ (Just _) ->
+                    updateEntry { entry | cell = expose True }
 
-revealNeighbours : Int -> Board -> Board
-revealNeighbours index board =
-    if not <| inProgress board.state then
-        board
+                Flagged _ Uncertain m ->
+                    updateEntry { entry | cell = expose (m /= Nothing) }
 
-    else
-        let
-            mayPoke : Int -> Bool
-            mayPoke c =
-                case Maybe.map .cell <| Array.get c board.entries of
-                    Just (New _ _) ->
-                        True
+                Flagged _ _ m ->
+                    if player.flagBlockPoke then
+                        entries
 
-                    Just (Flagged _ Uncertain _) ->
-                        True
+                    else
+                        updateEntry { entry | cell = expose (m /= Nothing) }
 
-                    _ ->
-                        False
-
-            folder : Int -> Board -> Board
-            folder i b =
-                Tuple.first (poke i b)
-
-            getNeighbours =
-                case Array.get index board.entries of
-                    Nothing ->
-                        []
-
-                    Just { neighbours } ->
-                        neighbours
-        in
-        getNeighbours
-            -- Only poke new cells
-            |> List.filter mayPoke
-            |> List.foldl folder board
-
-
-poke : Int -> Board -> ( Board, Maybe TimerEvent )
-poke index board =
-    if not <| inProgress board.state then
-        ( board, Nothing )
-
-    else
-        case Array.get index board.entries of
-            Nothing ->
-                ( board, Nothing )
-
-            Just ({ threats, cell } as entry) ->
-                let
-                    newBoard =
+                Exposed _ (Uncovered _) ->
+                    if player.revealNeighboursOnPoke then
                         let
-                            { mined, exploded, flagged, flaggedUncertain } =
-                                countNeighbourStates board index
+                            { flagged, exploded, flaggedUncertain, mined } =
+                                countNeighbourStates entries index
                         in
-                        case cell of
-                            Exposed _ (Open 0) ->
-                                board
+                        if flagged + exploded - flaggedUncertain == mined then
+                            revealNeighbours player level index entries
 
-                            Exposed _ (Open _) ->
-                                if flagged + exploded - flaggedUncertain == mined then
-                                    revealNeighbours (getIndex entry.cell) board
+                        else
+                            entries
 
-                                else
-                                    board
+                    else
+                        entries
 
-                            New i Nothing ->
-                                if threats /= 0 then
-                                    (updateCell board << revealSingle) entry
-
-                                else
-                                    let
-                                        safeCells : Set Int
-                                        safeCells =
-                                            collectSafe board.level board.entries i Set.empty
-
-                                        newEntries : Array BoardEntry
-                                        newEntries =
-                                            Array.map
-                                                (\e ->
-                                                    { e
-                                                        | cell =
-                                                            let
-                                                                idx =
-                                                                    getIndex e.cell
-                                                            in
-                                                            if Set.member idx safeCells then
-                                                                Exposed (getIndex e.cell) (Open e.threats)
-
-                                                            else
-                                                                e.cell
-                                                    }
-                                                )
-                                                board.entries
-                                    in
-                                    { board | entries = newEntries, stats = countStates newEntries }
-
-                            New i (Just _) ->
-                                updateCell board { cell = Exposed i Exploded }
-
-                            Flagged i Uncertain _ ->
-                                let
-                                    cmd : (a -> ( a, b )) -> a -> a
-                                    cmd f b =
-                                        Tuple.first (f b)
-                                in
-                                (cmd (poke i) << cmd (flag i)) board
-
-                            _ ->
-                                board
-
-                    ( completed, gameOver ) =
-                        doneState newBoard.state
-                in
-                if gameOver || completed then
-                    revealAll newBoard
-
-                else if gameWon newBoard then
-                    revealAll { newBoard | state = Done Completed }
-
-                else
-                    ( newBoard, Nothing )
+                _ ->
+                    entries
 
 
-defaultPoker : Handler (Maybe CellMsg)
-defaultPoker cell e =
-    case e.button of
-        Event.MainButton ->
-            Just (GotPoked (getIndex cell))
-
-        _ ->
-            Nothing
+paused : Minesweeper -> Bool
+paused (Board b) =
+    Types.paused b.state
 
 
-defaultFlagger : Handler (Maybe CellMsg)
-defaultFlagger cell _ =
-    Just (GotFlagged (getIndex cell))
+poke : Player msg -> Set Int -> Board -> ( Board, Maybe TimerEvent )
+poke p cells board =
+    let
+        player =
+            Player.info p
+
+        newEntries =
+            Set.foldr (pokeCell board.level player) board.entries cells
+
+        newStats =
+            countStates newEntries
+
+        newState =
+            if newStats.exploded >= player.lives then
+                Done GameOver
+
+            else if newStats.uncovered + newStats.mined == Array.length newEntries then
+                Done Completed
+
+            else
+                board.state
+
+        newBoard =
+            { board
+                | entries = newEntries
+                , stats = newStats
+                , state = newState
+            }
+
+        ( completed, gameOver ) =
+            doneState newBoard.state
+    in
+    if player.revealAllOnGameOver && gameOver || completed then
+        revealAll newBoard
+
+    else
+        ( newBoard, Nothing )
 
 
-defaultHandlers : Maybe (Handlers (Maybe CellMsg))
-defaultHandlers =
-    Just
-        { poker = defaultPoker
-        , flagger = defaultFlagger
-        }
-
-
-update : Seed -> CellMsg -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
-update seed msg ((Board board) as game) =
+update : Player msg -> Seed -> CellMsg -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
+update p seed msg ((Board board) as game) =
     let
         ( cmd, cell ) =
             case msg of
                 GotPoked c ->
-                    ( poke, c )
+                    ( poke p, c )
 
                 GotFlagged c ->
-                    ( flag, c )
+                    ( flag (Just Normal) p, c )
+
+                GotUnflagged c ->
+                    ( flag Nothing p, c )
     in
     case board.state of
         NotInitialized ->
-            update seed msg (initialize seed game)
+            ( game, Nothing )
 
+        -- update p seed msg (initialize seed game)
         Initialized ->
-            (update seed msg << Board) { board | state = Playing InProgress }
+            (update p seed msg << Board) { board | state = Playing InProgress }
                 |> Tuple.mapSecond (always (Just Start))
 
         Playing InProgress ->
@@ -385,11 +350,7 @@ update seed msg ((Board board) as game) =
 
 togglePause : ChangeMethod -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
 togglePause pauseState (Board b) =
-    let
-        { state } =
-            b
-    in
-    case state of
+    case b.state of
         Playing InProgress ->
             ( Board { b | state = Playing <| Paused pauseState }, Just Stop )
 
@@ -401,11 +362,7 @@ togglePause pauseState (Board b) =
 
 
 type alias PartialBoard a =
-    { a
-        | useUncertainFlag : Bool
-        , lives : Int
-        , level : Level
-    }
+    { a | level : Level }
 
 
 type alias Board =
@@ -413,16 +370,17 @@ type alias Board =
         { entries : Array BoardEntry
         , state : BoardState
         , stats : CellState Int
+        , seed : Maybe Seed
         }
 
 
+emptyBoard : Board
 emptyBoard =
     { entries = Array.empty
     , state = NotInitialized
-    , lives = 3
-    , useUncertainFlag = True
     , stats = mapCellState bool2int emptyCellState
     , level = beginner Hex Plane
+    , seed = Nothing
     }
 
 
@@ -438,21 +396,20 @@ demoBoard topology type_ =
                         , topology = topology
                         , type_ = type_
                         , mines = 0
-                        , useUncertainFlag = True
                         }
                 }
 
         cell i =
             if i < 8 then
-                Exposed i (Open (i + 1))
+                Exposed i (Uncovered (i + 1))
 
             else
                 case i of
                     8 ->
-                        Exposed i (Open 0)
+                        Exposed i (Uncovered 0)
 
                     9 ->
-                        New i Nothing
+                        Covered i Nothing
 
                     10 ->
                         Flagged i Normal (Just A)
@@ -487,13 +444,11 @@ mkBoard x =
 
         emptyEntry : Int -> BoardEntry
         emptyEntry i =
-            { cell = New i Nothing, threats = 0, neighbours = [] }
+            { cell = Covered i Nothing, threats = 0, neighbours = [] }
     in
     Board <|
         { emptyBoard
             | level = level
-            , lives = x.lives
-            , useUncertainFlag = x.useUncertainFlag
             , entries = Array.initialize (level.cols * level.rows) emptyEntry
         }
 
@@ -510,7 +465,7 @@ initialize seed (Board b) =
         entries =
             let
                 cells =
-                    Array.initialize dim (\i -> New i (Dict.get i mineDict))
+                    Array.initialize dim (\i -> Covered i (Dict.get i mineDict))
 
                 calculateIndex coordinate =
                     coordinate.col + level.cols * coordinate.row
@@ -524,14 +479,14 @@ initialize seed (Board b) =
                 (\i c ->
                     let
                         neighbourStates =
-                            getNeighbours { level = board.level, entries = cells } i
+                            getNeighbours { level = level, entries = cells } i
                                 |> List.map (\x -> { cell = x })
                                 |> Array.fromList
                                 |> countStates
                     in
                     { cell = c
                     , threats = neighbourStates.mined
-                    , neighbours = (List.map getIndex << getNeighbours { level = board.level, entries = cells }) i
+                    , neighbours = (List.map getIndex << getNeighbours { level = level, entries = cells }) i
                     }
                 )
             <|
@@ -555,15 +510,14 @@ initialize seed (Board b) =
             Set.toList mineSet
                 |> List.indexedMap randomMine_
                 |> Dict.fromList
-
-        board =
-            { b
-                | state = Initialized
-                , lives = clamp 1 3 b.lives
-                , level = level
-            }
     in
-    Board { board | entries = entries }
+    Board
+        { b
+            | entries = entries
+            , seed = Just seed
+            , state = Initialized
+            , level = level
+        }
 
 
 clampMines : Float -> Float
@@ -592,21 +546,17 @@ numMines level =
 -- VIEW
 
 
-type alias Handler msg =
-    Cell -> Event.Event -> msg
-
-
-type alias Handlers msg =
-    { poker : Handler msg
-    , flagger : Handler msg
-    }
-
-
 view : Maybe (Handlers msg) -> Minesweeper -> Html msg
-view handlers (Board board) =
+view handlers game =
     let
-        { state, level } =
-            board
+        board =
+            getBoard game
+
+        state =
+            board.state
+
+        level =
+            board.level
 
         offsets =
             case level.type_ of
@@ -659,7 +609,7 @@ view handlers (Board board) =
         cells =
             case state of
                 NotInitialized ->
-                    Array.initialize (rows * cols) (\i -> New i Nothing)
+                    Array.initialize (rows * cols) (\i -> Covered i Nothing)
 
                 _ ->
                     Array.map .cell board.entries
@@ -697,7 +647,7 @@ view handlers (Board board) =
                     , A.height (String.fromFloat cellSize)
                     ]
             in
-            svg cellAttributes [ lazy4 viewCell handlers state type_ cell ]
+            svg cellAttributes [ lazy5 viewCell Nothing handlers state type_ cell ]
 
         extraCells =
             case topology of
@@ -777,13 +727,13 @@ view handlers (Board board) =
 -- Helpers
 
 
-countNeighbourStates : Board -> Int -> CellState Int
-countNeighbourStates board origin =
+countNeighbourStates : Array BoardEntry -> Int -> CellState Int
+countNeighbourStates entries origin =
     let
         getNeighbours i =
-            case Array.get i board.entries of
+            case Array.get i entries of
                 Just { neighbours } ->
-                    List.filterMap (flip Array.get board.entries) neighbours
+                    List.filterMap (flip Array.get entries) neighbours
 
                 _ ->
                     []
@@ -802,6 +752,35 @@ countStates entries =
     in
     entries
         |> Array.foldl folder initial
+
+
+revealSafe : Int -> { a | level : Level, entries : Array BoardEntry } -> Array BoardEntry
+revealSafe i board =
+    let
+        safeCells : Set Int
+        safeCells =
+            collectSafe board.level board.entries i Set.empty
+
+        newEntries : Array BoardEntry
+        newEntries =
+            Array.map
+                (\e ->
+                    { e
+                        | cell =
+                            let
+                                idx =
+                                    getIndex e.cell
+                            in
+                            if Set.member idx safeCells then
+                                Exposed (getIndex e.cell) (Uncovered e.threats)
+
+                            else
+                                e.cell
+                    }
+                )
+                board.entries
+    in
+    newEntries
 
 
 collectSafe : Level -> Array BoardEntry -> Int -> Set Int -> Set Int
@@ -922,7 +901,6 @@ beginner g t =
     , type_ = g
     , topology = t
     , mines = 0.1
-    , useUncertainFlag = True
     }
 
 
@@ -1018,26 +996,26 @@ contains { rows, cols } { row, col } =
 
 
 mapCellState : (a -> b) -> CellState a -> CellState b
-mapCellState f { flagged, flaggedUncertain, mined, exploded, new, revealed, open } =
+mapCellState f { flagged, flaggedUncertain, mined, exploded, covered, revealed, uncovered } =
     { flagged = f flagged
     , flaggedUncertain = f flaggedUncertain
     , mined = f mined
     , exploded = f exploded
-    , new = f new
+    , covered = f covered
     , revealed = f revealed
-    , open = f open
+    , uncovered = f uncovered
     }
 
 
 applyState : CellState (b -> d) -> CellState b -> CellState d
-applyState f { flagged, flaggedUncertain, mined, exploded, new, revealed, open } =
+applyState f { flagged, flaggedUncertain, mined, exploded, covered, revealed, uncovered } =
     { flagged = f.flagged flagged
     , flaggedUncertain = f.flaggedUncertain flaggedUncertain
     , mined = f.mined mined
     , exploded = f.exploded exploded
-    , new = f.new new
+    , covered = f.covered covered
     , revealed = f.revealed revealed
-    , open = f.open open
+    , uncovered = f.uncovered uncovered
     }
 
 
@@ -1052,19 +1030,19 @@ emptyCellState =
     , flaggedUncertain = False
     , mined = False
     , exploded = False
-    , new = False
+    , covered = False
     , revealed = False
-    , open = False
+    , uncovered = False
     }
 
 
 cellState : Cell -> CellState Bool
 cellState cell =
     case cell of
-        New _ mine ->
+        Covered _ mine ->
             { emptyCellState
                 | mined = mine /= Nothing
-                , new = True
+                , covered = True
             }
 
         Exposed _ Exploded ->
@@ -1080,9 +1058,9 @@ cellState cell =
                 , revealed = True
             }
 
-        Exposed _ (Open _) ->
+        Exposed _ (Uncovered _) ->
             { emptyCellState
-                | open = True
+                | uncovered = True
                 , revealed = True
             }
 
@@ -1094,40 +1072,14 @@ cellState cell =
             }
 
 
-flagCell : Bool -> { a | cell : Cell } -> { a | cell : Cell }
-flagCell useUncertain entry =
-    let
-        cell =
-            case entry.cell of
-                New i mined ->
-                    Flagged i Normal mined
-
-                Flagged i c mined ->
-                    if useUncertain then
-                        case c of
-                            Normal ->
-                                Flagged i Uncertain mined
-
-                            _ ->
-                                New i mined
-
-                    else
-                        New i mined
-
-                Exposed _ _ ->
-                    entry.cell
-    in
-    { entry | cell = cell }
-
-
 
 -- CELL VIEW
 
 
-viewCell : Maybe (Handlers msg) -> BoardState -> GridType -> Cell -> Html msg
-viewCell handlers boardState gridType cell =
+viewCell : Maybe { a | width : Int, height : Int } -> Maybe (Handlers msg) -> BoardState -> GridType -> Cell -> Html msg
+viewCell dim handlers boardState gridType cell =
     let
-        { mined, open, flaggedUncertain } =
+        { mined, uncovered, flaggedUncertain } =
             cellState cell
 
         center =
@@ -1143,7 +1095,7 @@ viewCell handlers boardState gridType cell =
                     , Just (A.textAnchor "middle")
                     , Just (A.fill "white")
                     , Just (A.fontSize center)
-                    , if not open then
+                    , if not uncovered then
                         -- emoji
                         Just (attribute "role" "img")
 
@@ -1158,7 +1110,7 @@ viewCell handlers boardState gridType cell =
 
         ( state, content ) =
             case cell of
-                New _ _ ->
+                Covered _ _ ->
                     ( 0, [ cover ] )
 
                 Exposed _ (Mined m) ->
@@ -1173,11 +1125,11 @@ viewCell handlers boardState gridType cell =
                       ]
                     )
 
-                Exposed _ (Open 0) ->
+                Exposed _ (Uncovered 0) ->
                     ( 1, [ background ] )
 
-                Exposed _ (Open n) ->
-                    ( 1, [ background, symbol (Count n) ] )
+                Exposed _ (Uncovered n) ->
+                    ( 1, [ background, symbol (Symbol.Count n) ] )
 
                 Flagged _ f m ->
                     let
@@ -1211,7 +1163,7 @@ viewCell handlers boardState gridType cell =
                     ( cssState, [ el, symbol s ] )
 
                 Exposed _ Exploded ->
-                    ( 4, [ background, symbol ExplodedMine ] )
+                    ( 4, [ background, symbol Symbol.ExplodedMine ] )
 
         viewBox =
             List.map String.fromFloat [ 0, 0, cellSize, cellSize ]
@@ -1228,17 +1180,13 @@ viewCell handlers boardState gridType cell =
         handlerAttrs =
             case ( attachHandlers, handlers ) of
                 ( True, Just { poker, flagger } ) ->
-                    [ stop "mousedown" (poker cell), stop "contextmenu" (flagger cell) ]
+                    [ poker cell, flagger cell ]
 
                 _ ->
                     []
 
         attachHandlers =
-            not (completed || gameOver || boardState == Demo || paused boardState)
-
-        stop e =
-            { stopPropagation = True, preventDefault = True }
-                |> Event.onWithOptions e
+            not (completed || gameOver || boardState == Demo || Types.paused boardState)
 
         optionalAttributes =
             [ if mined && (completed || gameOver || boardState == Demo) then
@@ -1247,11 +1195,17 @@ viewCell handlers boardState gridType cell =
               else
                 Nothing
             , case cell of
-                Exposed _ (Open threats) ->
+                Exposed _ (Uncovered threats) ->
                     Just (attribute "data-t" (String.fromInt threats))
 
                 _ ->
                     Nothing
+            , Maybe.map
+                (\d -> (width << String.fromInt) d.width)
+                dim
+            , Maybe.map
+                (\d -> (height << String.fromInt) d.height)
+                dim
             ]
 
         ( completed, gameOver ) =

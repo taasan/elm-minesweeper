@@ -1,6 +1,12 @@
-module Page exposing (Page(..))
+module Page exposing (LevelStep(..), Modal(..))
 
 
-type Page
-    = Game
-    | LevelChooser
+type LevelStep
+    = Topology
+    | GridType
+    | Actor
+    | Dimensions
+
+
+type Modal
+    = LevelChooser LevelStep
