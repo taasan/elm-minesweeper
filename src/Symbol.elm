@@ -1,11 +1,12 @@
 module Symbol exposing
     ( Symbol(..)
+    , fromActor
     , randomMine
     , toString
     )
 
 import Random
-import Types exposing (BoardState(..), DoneState(..), Flag(..), Mine(..), PlayState(..))
+import Types exposing (Actor, BoardState(..), DoneState(..), Flag(..), Mine(..), PlayState(..))
 
 
 randomMine : Random.Generator Mine
@@ -38,6 +39,17 @@ type Symbol
     | Board BoardState
     | Hamburger
     | Heart
+    | Machine
+
+
+fromActor : Actor -> Symbol
+fromActor actor =
+    case actor of
+        Types.Robot ->
+            Machine
+
+        Types.Human ->
+            Heart
 
 
 toString : Symbol -> String
@@ -168,3 +180,6 @@ toString s =
 
         Heart ->
             "❤️"
+
+        Machine ->
+            "🤖"

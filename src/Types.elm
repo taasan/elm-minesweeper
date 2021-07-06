@@ -1,5 +1,8 @@
 module Types exposing
-    ( BoardEntry
+    ( Actor(..)
+    ,  BoardEntry
+       -- Prevent language server from converting list to one line
+
     , BoardState(..)
     , Cell(..)
     , CellMsg(..)
@@ -7,28 +10,38 @@ module Types exposing
     , ChangeMethod(..)
     , Coordinate
     , DoneState(..)
+    , ErrorMsg(..)
     , Flag(..)
     , GameMsg(..)
     , GridType(..)
+    , IncomingCellsMsg
+    , IncomingMsg(..)
     , Key(..)
     , Level
     , Mine(..)
     , Msg(..)
     , PlayState(..)
     , Revealed(..)
-    , StackOperation(..)
     , TimerEvent(..)
     , Topology(..)
+    , boardStateEncoder
     , doneState
     , getIndex
     , inProgress
+    , incomingMsgDecoder
     , paused
     )
 
 import Browser.Events
-import Page exposing (Page)
+import Json.Decode as D
+import Json.Decode.Pipeline as D
+import Json.Encode as E
+import Page exposing (LevelStep, Modal)
 import Random exposing (Seed)
+import Set exposing (Set)
 import Time
+import Toasty
+import Toasty.Defaults
 
 
 
@@ -44,11 +57,83 @@ type Msg
     | GotCurrentTime Time.Posix
     | GotTimerEvent TimerEvent Time.Posix
     | GotLevel Level
+    | GotActor Actor
     | Relax
     | VisibilityChanged Browser.Events.Visibility
-    | GotPage StackOperation Page
-    | PopPage
+    | GotModal Modal
+    | PopModal
     | KeyPressed Key
+    | ToastyMsg (Toasty.Msg Toasty.Defaults.Toast)
+    | GotIncomingMsg (Result D.Error IncomingMsg)
+    | GotLevelChooserStep LevelStep
+
+
+type alias IncomingCellsMsg =
+    { poke : List Int, flag : List Int, state : Maybe DoneState }
+
+
+type ErrorMsg
+    = SolverError
+    | UnknownError String
+
+
+type IncomingMsg
+    = IncomingCells IncomingCellsMsg
+    | SolverStarted
+    | Solution IncomingCellsMsg
+    | Error ErrorMsg String
+
+
+incomingMsgDecoder : D.Decoder IncomingMsg
+incomingMsgDecoder =
+    let
+        incomingCellsDecoder : D.Decoder IncomingCellsMsg
+        incomingCellsDecoder =
+            D.succeed IncomingCellsMsg
+                |> D.requiredAt [ "payload", "poke" ] (D.list D.int)
+                |> D.requiredAt [ "payload", "flag" ] (D.list D.int)
+                |> D.optionalAt [ "payload", "state" ] (D.maybe doneStateDecoder) Nothing
+
+        payloadDecoder mapper decoder =
+            mapper (D.required "payload" |> always decoder)
+
+        errorDecoder : D.Decoder IncomingMsg
+        errorDecoder =
+            D.field "tag" D.string
+                |> D.andThen
+                    (\tag ->
+                        let
+                            eTag =
+                                case tag of
+                                    "Solver" ->
+                                        SolverError
+
+                                    _ ->
+                                        UnknownError tag
+                        in
+                        D.succeed (Error eTag)
+                            |> D.required "error" D.string
+                    )
+
+        okDecoder =
+            D.field "tag" D.string
+                |> D.andThen
+                    (\tag ->
+                        case tag of
+                            "IncomingCells" ->
+                                D.map IncomingCells incomingCellsDecoder
+
+                            "SolverStarted" ->
+                                D.succeed SolverStarted
+
+                            "Solution" ->
+                                payloadDecoder (D.map Solution) incomingCellsDecoder
+
+                            _ ->
+                                D.fail <| "Invalid tag " ++ tag
+                    )
+    in
+    D.oneOf [ errorDecoder, okDecoder ]
 
 
 type Key
@@ -56,19 +141,20 @@ type Key
     | Other
 
 
-type StackOperation
-    = Replace
-    | Push
+type Actor
+    = Human
+    | Robot
 
 
 type GameMsg
-    = NewGame Level
-    | RandomGame Level
+    = NewGame
+    | RandomGame
 
 
 type CellMsg
-    = GotFlagged Int
-    | GotPoked Int
+    = GotFlagged (Set Int)
+    | GotUnflagged (Set Int)
+    | GotPoked (Set Int)
 
 
 
@@ -96,6 +182,31 @@ type BoardState
     | Playing PlayState
     | Done DoneState
     | Demo
+
+
+boardStateEncoder : BoardState -> E.Value
+boardStateEncoder state =
+    case state of
+        NotInitialized ->
+            E.string "NotInitialized"
+
+        Initialized ->
+            E.string "Initialized"
+
+        Playing InProgress ->
+            E.string "Playing InProgress"
+
+        Playing (Paused _) ->
+            E.string "Playing Paused"
+
+        Done GameOver ->
+            E.string "Done GameOver"
+
+        Done Completed ->
+            E.string "Done Completed"
+
+        Demo ->
+            E.string "Demo"
 
 
 inProgress : BoardState -> Bool
@@ -133,7 +244,6 @@ type alias Level =
     , topology : Topology
     , type_ : GridType
     , mines : Float
-    , useUncertainFlag : Bool
     }
 
 
@@ -157,14 +267,14 @@ type alias CellState a =
     , flaggedUncertain : a
     , mined : a
     , exploded : a
-    , new : a
+    , covered : a
     , revealed : a
-    , open : a
+    , uncovered : a
     }
 
 
 type Revealed
-    = Open Int
+    = Uncovered Int
     | Exploded
     | Mined Mine
 
@@ -183,7 +293,7 @@ type alias BoardEntry =
 
 
 type Cell
-    = New Int (Maybe Mine)
+    = Covered Int (Maybe Mine)
     | Exposed Int Revealed
     | Flagged Int Flag (Maybe Mine)
 
@@ -209,7 +319,7 @@ type Mine
 getIndex : Cell -> Int
 getIndex cell =
     case cell of
-        New i _ ->
+        Covered i _ ->
             i
 
         Exposed i _ ->
@@ -248,3 +358,20 @@ doneState state =
 type TimerEvent
     = Start
     | Stop
+
+
+doneStateDecoder : D.Decoder DoneState
+doneStateDecoder =
+    D.string
+        |> D.andThen
+            (\s ->
+                case s of
+                    "GameOver" ->
+                        D.succeed GameOver
+
+                    "Completed" ->
+                        D.succeed Completed
+
+                    _ ->
+                        D.fail <| "Unknown DoneState " ++ s
+            )
