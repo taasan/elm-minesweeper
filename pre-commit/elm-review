@@ -5,6 +5,12 @@ import sys
 
 
 def main():
+    npx_cmd = [
+        "npx",
+        "--no-install",
+        "elm-review",
+        "--ignore-dirs=tests",
+    ]
     res = subprocess.run(
         ["git", "ls-files", "-z", "-o", "--exclude-standard"],
         check=True,
@@ -12,18 +18,15 @@ def main():
     )
     untracked = res.stdout[:-1].split(b"\0")
 
-    ignore = b",".join(untracked)
+    if untracked:
+        npx_cmd.extend(
+            [
+                "--ignore-files",
+                b",".join(untracked),
+            ],
+        )
 
-    res = subprocess.run(
-        [
-            "npx",
-            "--no-install",
-            "elm-review",
-            "--ignore-dirs=tests",
-            "--ignore-files",
-            ignore,
-        ],
-    )
+    res = subprocess.run(npx_cmd)
     print(res)
     sys.exit(res.returncode)
 
