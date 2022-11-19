@@ -20,10 +20,9 @@
     "@parcel/transformer-image": "^2.8.0",
     "@parcel/transformer-sass": "^2.8.0",
     "@parcel/transformer-webmanifest": "^2.8.0",
-    "elm-review": "^2.8.2",
+    "elm-review": "^2.7.6",
     "elm-tooling": "^1.10.0",
     "parcel": "^2.8.0",
     "postcss": "^8.4.19"
-  },
-  "dependencies": {}
+  }
 }
