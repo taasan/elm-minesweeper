@@ -22,6 +22,7 @@ module Types exposing
     , Msg(..)
     , PlayState(..)
     , Revealed(..)
+    , Speed(..)
     , TimerEvent(..)
     , Topology(..)
     , boardStateEncoder
@@ -30,6 +31,8 @@ module Types exposing
     , inProgress
     , incomingMsgDecoder
     , paused
+    , speedDecoder
+    , speedEncoder
     )
 
 import Browser.Events
@@ -141,9 +144,15 @@ type Key
     | Other
 
 
+type Speed
+    = Slow
+    | Medium
+    | AsFastAsPossible
+
+
 type Actor
     = Human
-    | Robot
+    | Robot Speed
 
 
 type GameMsg
@@ -374,4 +383,37 @@ doneStateDecoder =
 
                     _ ->
                         D.fail <| "Unknown DoneState " ++ s
+            )
+
+
+speedEncoder : Speed -> E.Value
+speedEncoder speed =
+    case speed of
+        Slow ->
+            E.string "Slow"
+
+        Medium ->
+            E.string "Medium"
+
+        AsFastAsPossible ->
+            E.string "AsFastAsPossible"
+
+
+speedDecoder : D.Decoder Speed
+speedDecoder =
+    D.string
+        |> D.andThen
+            (\x ->
+                case x of
+                    "Slow" ->
+                        D.succeed Slow
+
+                    "Medium" ->
+                        D.succeed Medium
+
+                    "AsFastAsPossible" ->
+                        D.succeed AsFastAsPossible
+
+                    _ ->
+                        D.fail ("Invalid speed " ++ x)
             )

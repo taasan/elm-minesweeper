@@ -32,7 +32,14 @@ import { Field, Solver, GameOver, GameWon } from "./solver";
  * @property {"SaveValue"} tag
  * @property {SaveValuePayload} payload
  *
- * @typedef {CellsUncoveredMsg|SaveValueMsg} IncomingMessage
+ * @typedef {Object} GetStepPayload
+ * @property {"Slow"|"Medium"|"AsFastAsPossible"} speed
+ *
+ * @typedef {Object} GetStepMsg
+ * @property {"GetStep"} tag
+ * @property {GetStepPayload} payload
+ *
+ * @typedef {CellsUncoveredMsg|SaveValueMsg|GetStepMsg} IncomingMessage
  */
 
 const SETTINGS_STORAGE_KEY = "Minesweeper";
@@ -183,7 +190,21 @@ function handleIncoming({ tag, payload }) {
       if (runner == null) {
         logger.warn("Runner is undefined.");
       } else {
-        requestAnimationFrame(() => app.ports.receive.send(runner.step()));
+        const f = () => app.ports.receive.send(runner.step());
+        switch (payload.speed) {
+          case "Slow":
+            setTimeout(f, 300);
+            break;
+          case "Medium":
+            setTimeout(f, 100);
+            break;
+          case "AsFastAsPossible":
+            requestAnimationFrame(f);
+            break;
+          default:
+            console.warn("Unknown speed", speed)
+            setTimeout(f, 1000);
+        }
       }
       break;
     default:

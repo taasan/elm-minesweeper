@@ -18,7 +18,15 @@ import Html.Events.Extra.Mouse as Event
 import Set
 import Symbol exposing (Symbol)
 import Time exposing (Posix)
-import Types exposing (Actor(..), Cell(..), CellMsg(..), getIndex)
+import Types
+    exposing
+        ( Actor(..)
+          --
+        , Cell(..)
+        , CellMsg(..)
+        , Speed
+        , getIndex
+        )
 
 
 human : Player (Maybe CellMsg)
@@ -36,10 +44,10 @@ human =
         }
 
 
-robot : Player Never
-robot =
+robot : Speed -> Player Never
+robot speed =
     Player
-        { actor = Robot
+        { actor = Robot speed
         , flagBlockPoke = False
         , autoRevealSafe = False
         , revealNeighboursOnPoke = False
@@ -141,8 +149,8 @@ fromActor actor =
         Human ->
             human
 
-        Robot ->
-            map (always Nothing) robot
+        Robot speed ->
+            map (always Nothing) (robot speed)
 
 
 info : Player msg -> PlayerInfo msg

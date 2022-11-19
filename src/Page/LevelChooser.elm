@@ -38,6 +38,7 @@ import Types
         , Level
         , Msg(..)
         , PlayState(..)
+        , Speed
         , Topology(..)
         )
 
@@ -52,8 +53,8 @@ alwaysPreventDefault msg =
     ( msg, True )
 
 
-viewActorStep : Actor -> List (Html (Maybe Msg))
-viewActorStep actor =
+viewActorStep : Speed -> Actor -> List (Html (Maybe Msg))
+viewActorStep speed actor =
     let
         actorChanged =
             Just << GotActor
@@ -66,7 +67,7 @@ viewActorStep actor =
             div [] [ a |> text << Symbol.toString << Symbol.fromActor ]
                 |> radio "ActorRadio" "actor" checked_ (actorChanged a)
     in
-    List.map actorRadio [ Robot, Human ]
+    List.map actorRadio [ Robot speed, Human ]
 
 
 viewTopologyStep level =
@@ -143,15 +144,15 @@ viewDimensionsStep level =
     ]
 
 
-view : ( Level, Actor ) -> LevelStep -> Html (Maybe Msg)
-view ( level, actor ) step =
+view : { a | level : Level, speed : Speed, actor : Actor } -> LevelStep -> Html (Maybe Msg)
+view { level, speed, actor } step =
     let
         form_ =
             let
                 content =
                     case step of
                         Actor ->
-                            viewActorStep actor
+                            viewActorStep speed actor
 
                         Topology ->
                             viewTopologyStep level

@@ -45,7 +45,7 @@ type Symbol
 fromActor : Actor -> Symbol
 fromActor actor =
     case actor of
-        Types.Robot ->
+        Types.Robot _ ->
             Machine
 
         Types.Human ->

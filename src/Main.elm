@@ -59,11 +59,14 @@ import Types
         , Level
         , Msg(..)
         , PlayState(..)
+        , Speed(..)
         , TimerEvent(..)
         , Topology(..)
         , boardStateEncoder
         , inProgress
         , incomingMsgDecoder
+        , speedDecoder
+        , speedEncoder
         )
 import Url exposing (Url)
 
@@ -77,7 +80,7 @@ type alias Model =
     , board : Minesweeper
     , url : Url
     , key : Nav.Key
-    , nextLevel : ( Level, Actor )
+    , nextLevel : { level : Level, speed : Speed, actor : Actor }
     , seed : Seed
     , modals : List Modal
     , player : Player (Maybe CellMsg)
@@ -117,12 +120,12 @@ defaultTheme =
 
 
 mkModel : Url -> Nav.Key -> Flags -> Model
-mkModel url key { level, actor } =
+mkModel url key { level, speed, actor } =
     { currentTime = Time.millisToPosix 0
     , board = mkBoard { level = level }
     , url = url
     , key = key
-    , nextLevel = ( level, actor )
+    , nextLevel = { level = level, speed = speed, actor = actor }
     , seed = Random.initialSeed 0
     , modals = []
     , player = Player.fromActor actor
@@ -144,6 +147,7 @@ init flags url key =
                       , themes = [ solarized, defaultTheme ]
                       , level = Minesweeper.beginner Square Plane
                       , actor = Human
+                      , speed = Slow
                       }
                     , (Just << D.errorToString) err
                     )
@@ -217,12 +221,12 @@ handleGameMessage msg model =
     case msg of
         NewGame ->
             let
-                ( level, actor ) =
+                { level, actor } =
                     model.nextLevel
 
                 f =
                     case actor of
-                        Robot ->
+                        Robot _ ->
                             startMachineGame
 
                         Human ->
@@ -302,9 +306,14 @@ handleCellMessage msg model =
         ( { model | board = updatedBoard }, Cmd.batch [ timerCmd, cellUncoveredCmd ] )
 
 
+getActor : { a | player : Player msg } -> Actor
+getActor =
+    .actor << Player.info << .player
+
+
 doTogglePause : ChangeMethod -> Model -> ( Model, Cmd Msg )
 doTogglePause pauseState model =
-    if (.actor << Player.info << .player) model /= Human then
+    if getActor model /= Human then
         ( model, Cmd.none )
 
     else
@@ -401,7 +410,7 @@ update_ msg model =
         ret newModel =
             ( newModel, Cmd.none )
 
-        { board } =
+        { board, nextLevel } =
             model
 
         rec =
@@ -466,7 +475,7 @@ update_ msg model =
         GotLevel level ->
             let
                 m =
-                    { model | nextLevel = Tuple.mapFirst (always level) model.nextLevel }
+                    { model | nextLevel = { nextLevel | level = level } }
             in
             ( m, saveLevel level )
 
@@ -501,7 +510,7 @@ update_ msg model =
             noop
 
         GotActor actor ->
-            ret { model | nextLevel = Tuple.mapSecond (always actor) model.nextLevel }
+            ret { model | nextLevel = { nextLevel | actor = actor } }
                 |> addCmd (saveActor actor)
 
         ToastyMsg subMsg ->
@@ -558,7 +567,16 @@ update_ msg model =
                         cmd =
                             case .state << getBoard << .board << Tuple.first <| updated of
                                 Playing InProgress ->
-                                    sendOutgoingMessage GetStep
+                                    let
+                                        speed =
+                                            case getActor model of
+                                                Human ->
+                                                    Slow
+
+                                                Robot x ->
+                                                    x
+                                    in
+                                    sendOutgoingMessage (GetStep speed)
 
                                 _ ->
                                     Cmd.none
@@ -877,12 +895,15 @@ saveActor actor =
         value =
             case actor of
                 Human ->
-                    "Human"
+                    E.object [ ( "type", E.string "Human" ) ]
 
-                Robot ->
-                    "Robot"
+                Robot speed ->
+                    E.object
+                        [ ( "type", E.string "Robot" )
+                        , ( "speed", speedEncoder speed )
+                        ]
     in
-    sendOutgoingMessage <| SaveValue { key = "actor", value = E.string value }
+    sendOutgoingMessage <| SaveValue { key = "actor", value = value }
 
 
 
@@ -919,7 +940,7 @@ type OutgoingMsg
     = CellsUncovered (List CellRevealedResponse)
     | SaveValue SaveValueMsg
     | StartSolver Level
-    | GetStep
+    | GetStep Speed
 
 
 outgoingMsgEncoder : OutgoingMsg -> E.Value
@@ -950,8 +971,9 @@ outgoingMsgEncoder msg =
             Just (saveValueEncoder value)
                 |> encode "SaveValue"
 
-        GetStep ->
-            encode "GetStep" Nothing
+        GetStep speed ->
+            Just (E.object [ ( "speed", speedEncoder speed ) ])
+                |> encode "GetStep"
 
 
 sendOutgoingMessage : OutgoingMsg -> Cmd msg
@@ -982,6 +1004,7 @@ type alias Flags =
     , theme : String
     , level : Level
     , actor : Actor
+    , speed : Speed
     }
 
 
@@ -992,22 +1015,24 @@ decoder =
         |> D.optional "theme" D.string solarized
         |> D.optional "level" levelDecoder (Minesweeper.beginner Square Plane)
         |> D.optional "actor" actorDecoder Human
+        |> D.optional "speed" speedDecoder Medium
 
 
 actorDecoder : D.Decoder Actor
 actorDecoder =
-    D.string
+    D.field "type" D.string
         |> D.andThen
-            (\s ->
-                case s of
+            (\type_ ->
+                case type_ of
                     "Human" ->
                         D.succeed Human
 
                     "Robot" ->
                         D.succeed Robot
+                            |> D.required "speed" speedDecoder
 
                     _ ->
-                        D.fail <| "Invalid Topology " ++ s
+                        D.fail <| "Invalid Actor " ++ type_
             )
 
 
