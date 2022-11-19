@@ -1029,7 +1029,7 @@ actorDecoder =
 
                     "Robot" ->
                         D.succeed Robot
-                            |> D.required "speed" speedDecoder
+                            |> D.optional "speed" speedDecoder Slow
 
                     _ ->
                         D.fail <| "Invalid Actor " ++ type_
