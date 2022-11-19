@@ -11,7 +11,6 @@ import Bitwise exposing (and)
 import Random
 import Task
 import Time
-import Types exposing (Msg(..))
 
 
 isEven : Int -> Bool

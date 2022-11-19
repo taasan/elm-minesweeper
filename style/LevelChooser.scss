@@ -43,10 +43,6 @@ input[type="range"][orient=vertical] {
     display: flex;
   }
 
-  fieldset > + {
-    padding: 4px;
-  }
-
   label.RadioGroup__Option {
     display: inline-block;
     font-size: 80px;

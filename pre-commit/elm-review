@@ -16,13 +16,12 @@ def main():
         check=True,
         capture_output=True,
     )
-    untracked = res.stdout[:-1].split(b"\0")
 
-    if untracked:
+    if untracked := res.stdout[:-1]:
         npx_cmd.extend(
             [
                 "--ignore-files",
-                b",".join(untracked),
+                b",".join(untracked.split(b"\0")),
             ],
         )
 

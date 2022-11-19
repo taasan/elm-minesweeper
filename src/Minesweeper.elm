@@ -81,7 +81,6 @@ import Types
         , GridType(..)
         , Level
         , Mine(..)
-        , Msg(..)
         , PlayState(..)
         , Revealed(..)
         , TimerEvent(..)
@@ -216,7 +215,7 @@ pokeCell level player index entries =
         Nothing ->
             entries
 
-        Just ({ threats, cell } as entry) ->
+        Just ({ threats } as entry) ->
             let
                 updateEntry x =
                     Array.set index x entries
@@ -312,8 +311,8 @@ poke p cells board =
         ( newBoard, Nothing )
 
 
-update : Player msg -> Seed -> CellMsg -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
-update p seed msg ((Board board) as game) =
+update : Player msg -> CellMsg -> Minesweeper -> ( Minesweeper, Maybe TimerEvent )
+update p msg ((Board board) as game) =
     let
         ( cmd, cell ) =
             case msg of
@@ -332,7 +331,7 @@ update p seed msg ((Board board) as game) =
 
         -- update p seed msg (initialize seed game)
         Initialized ->
-            (update p seed msg << Board) { board | state = Playing InProgress }
+            (update p msg << Board) { board | state = Playing InProgress }
                 |> Tuple.mapSecond (always (Just Start))
 
         Playing InProgress ->
@@ -759,7 +758,7 @@ revealSafe i board =
     let
         safeCells : Set Int
         safeCells =
-            collectSafe board.level board.entries i Set.empty
+            collectSafe board.entries i Set.empty
 
         newEntries : Array BoardEntry
         newEntries =
@@ -783,8 +782,8 @@ revealSafe i board =
     newEntries
 
 
-collectSafe : Level -> Array BoardEntry -> Int -> Set Int -> Set Int
-collectSafe level entries origin acc =
+collectSafe : Array BoardEntry -> Int -> Set Int -> Set Int
+collectSafe entries origin acc =
     let
         safe =
             Set.insert origin acc
@@ -798,7 +797,7 @@ collectSafe level entries origin acc =
             if threats == 0 && isNotVisited origin then
                 neighbours
                     |> List.filter isNotVisited
-                    |> List.foldl (collectSafe level entries) safe
+                    |> List.foldl (collectSafe entries) safe
 
             else
                 safe

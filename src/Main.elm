@@ -47,7 +47,6 @@ import Types
     exposing
         ( Actor(..)
         , BoardState(..)
-        , Cell
         , CellMsg(..)
         , ChangeMethod(..)
         , DoneState(..)
@@ -60,7 +59,6 @@ import Types
         , Level
         , Msg(..)
         , PlayState(..)
-        , Revealed(..)
         , TimerEvent(..)
         , Topology(..)
         , boardStateEncoder
@@ -255,7 +253,7 @@ handleCellMessage msg model =
                 model.board
 
             ( updatedBoard, event ) =
-                Minesweeper.update model.player model.seed msg board
+                Minesweeper.update model.player msg board
 
             timerCmd =
                 case event of

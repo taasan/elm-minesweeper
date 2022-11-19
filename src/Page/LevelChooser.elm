@@ -32,7 +32,6 @@ import Types
           --
         , BoardState(..)
         , Cell(..)
-        , DoneState(..)
         , Flag(..)
         , GameMsg(..)
         , GridType(..)

@@ -50,7 +50,7 @@
   margin: 0;
   background-color: var(--background-base3, revert);
   color: var(--foreground-base3, revert);
-  @media screen and(min-width: 600px) {
+  @media screen and (min-width: 600px) {
     & {
       padding: 20px;
     }
