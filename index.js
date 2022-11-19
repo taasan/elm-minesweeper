@@ -74,7 +74,7 @@ function saveValue({ key, value }) {
     throw TypeError("Trying to save value with empty key");
   }
   const nskey = `${SETTINGS_STORAGE_KEY}.${key}`;
-  console.debug(`Trying to save value with key ${nskey}`);
+  console.debug(`Trying to save value with key ${nskey}`, {value});
   try {
     localStorage.setItem(nskey, JSON.stringify(value));
   } catch (err) {
