@@ -9,15 +9,12 @@ jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-node@v1
-      with:
-        # Choose your Node.js version here:
-        node-version: 18.x
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
 
     - name: Cache node_modules
       id: cache-node_modules
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: node_modules
         key: node_modules-${{ hashFiles('package.json', 'package-lock.json') }}
@@ -26,7 +23,7 @@ jobs:
     # review/elm.json changes. The Elm compiler saves downloaded Elm packages
     # to ~/.elm, and elm-tooling saves downloaded tool executables there.
     - name: Cache ~/.elm
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: ~/.elm
         key: elm-${{ hashFiles('elm.json', 'elm-tooling.json', 'review/elm.json') }}
@@ -60,11 +57,11 @@ jobs:
       run: npx --no-install elm-tooling install
 
 
-    - uses: actions/setup-python@v2
-    - uses: pre-commit/action@v3.0.0
+    - uses: actions/setup-python@v5
+    - uses: pre-commit/action@v3.0.1
 
     - name: Upload production-ready build files
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: production-files
         path: ./dist
@@ -77,7 +74,7 @@ jobs:
 
     steps:
     - name: Download artifact
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: production-files
         path: ./dist
