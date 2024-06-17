@@ -1,8 +1,7 @@
 module Types exposing
     ( Actor(..)
-    ,  BoardEntry
-       -- Prevent language server from converting list to one line
-
+    , BoardEntry
+      -- Prevent language server from converting list to one line
     , BoardState(..)
     , Cell(..)
     , CellMsg(..)

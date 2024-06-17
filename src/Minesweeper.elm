@@ -1,7 +1,6 @@
 module Minesweeper exposing
-    (  Board
-       -- Comment to prevent the language server from making this list a one-liner
-
+    ( Board
+      -- Comment to prevent the language server from making this list a one-liner
     , Minesweeper
     , PartialBoard
     , beginner

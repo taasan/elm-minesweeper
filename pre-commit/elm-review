@@ -9,10 +9,12 @@ def main():
         "npx",
         "--no-install",
         "elm-review",
-        "--ignore-dirs=tests",
+        "src",
+        # "review",
+        "tests",
     ]
     res = subprocess.run(
-        ["git", "ls-files", "-z", "-o", "--exclude-standard"],
+        ["git", "ls-files", "-z", "-o", "--exclude-standard", "*.elm"],
         check=True,
         capture_output=True,
     )

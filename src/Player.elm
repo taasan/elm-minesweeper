@@ -1,7 +1,6 @@
 module Player exposing
-    (  Handler
-       --
-
+    ( Handler
+      --
     , Handlers
     , Player(..)
     , PlayerInfo
