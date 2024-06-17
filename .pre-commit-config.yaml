@@ -21,6 +21,8 @@ repos:
         entry: pre-commit/elm-review
         language: node
         files: \.elm$
+        pass_filenames: false
+        require_serial: true
       - id: build
         name: build
         entry: npm run build
