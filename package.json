@@ -15,14 +15,15 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@parcel/packager-raw-url": "^2.12.0",
-    "@parcel/transformer-elm": "^2.12.0",
-    "@parcel/transformer-image": "^2.12.0",
-    "@parcel/transformer-sass": "^2.12.0",
-    "@parcel/transformer-webmanifest": "^2.12.0",
+    "@parcel/packager-raw-url": "^2.13.0",
+    "@parcel/transformer-elm": "^2.13.0",
+    "@parcel/transformer-image": "^2.13.0",
+    "@parcel/transformer-sass": "^2.13.0",
+    "@parcel/transformer-webmanifest": "^2.13.0",
     "elm-review": "^2.12",
     "elm-tooling": "^1.15.1",
-    "parcel": "^2.12.0",
-    "postcss": "^8.4.38"
+    "parcel": "^2.13.0",
+    "postcss": "^8.4.49",
+    "svgo": "^3.3.2"
   }
 }

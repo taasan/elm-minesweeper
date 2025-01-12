@@ -1,23 +1,23 @@
 // Components
-@import "FormatNumber";
-@import "LevelChooser";
-@import "NumeralSystemChooser";
-@import "SettingsDialog";
-@import "SvgCell";
-@import "SvgMinesweeper";
-@import "App";
-@import "SvgBoard";
+@use "FormatNumber";
+@use "LevelChooser";
+@use "NumeralSystemChooser";
+@use "SettingsDialog";
+@use "SvgCell";
+@use "SvgMinesweeper";
+@use "App";
+@use "SvgBoard";
 
 // Theme
-@import "./theme/theme";
+@use "theme/theme";
 
 // SOlarized theme
-@import "./theme/solarized/solarized";
-@import "./theme/solarized/light";
-@import "./theme/solarized/dark";
+@use "theme/solarized/solarized";
+@use "theme/solarized/light";
+@use "theme/solarized/dark";
 // FIXME @import "./theme/solarized/auto";
 
-@import "normalize";
+@use "normalize";
 
 @font-face {
   font-family: "color-emoji";

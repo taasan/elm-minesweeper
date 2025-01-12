@@ -1,19 +1,20 @@
-@import "colors";
+@use "sass:color";
+@use "colors";
 
 .Theme__Solarized__Light {
-  background-color: $base3;
-  color: $base03;
+  background-color: colors.$base3;
+  color: colors.$base03;
 
-  --cell-background: #{$base00};
-  --cell-background-open: #{$base2};
-  --cell-border: #{$base2};
-  --cell-pressed-color: #{darken($base2, 4%)};
-  --background-base3: #{$base3};
-  --background-base2: #{$base2};
-  --background-base1: #{$base1};
-  --background-base0: #{$base0};
-  --foreground-base3: #{$base03};
-  --foreground-base2: #{$base02};
-  --foreground-base1: #{$base01};
-  --foreground-base0: #{$base00};
+  --cell-background: #{colors.$base00};
+  --cell-background-open: #{colors.$base2};
+  --cell-border: #{colors.$base2};
+  --cell-pressed-color: #{color.adjust(colors.$base2, $lightness: -4%)};
+  --background-base3: #{colors.$base3};
+  --background-base2: #{colors.$base2};
+  --background-base1: #{colors.$base1};
+  --background-base0: #{colors.$base0};
+  --foreground-base3: #{colors.$base03};
+  --foreground-base2: #{colors.$base02};
+  --foreground-base1: #{colors.$base01};
+  --foreground-base0: #{colors.$base00};
 }

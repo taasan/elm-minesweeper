@@ -1,3 +1,4 @@
+@use "sass:list";
 // Game states
 $GAME_OVER: "GAME_OVER";
 $COMPLETED: "COMPLETED";
@@ -29,7 +30,7 @@ $CELL_STATES: $OPEN, $FLAGGED, $UNCERTAIN, $NEW, $EXPLODED;
 $flagTypes: $FLAGGED, $UNCERTAIN;
 
 @function contains($list, $item) {
-  @return index($list, $item);
+  @return list.index($list, $item);
 }
 
 @function removeCover($gameState, $cellState) {
